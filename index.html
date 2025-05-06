@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>3D RPG с замком, коллизиями и Пердунчиком</title>
+  <title>3D RPG с замком без зазоров и врагом внутри</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -31,7 +31,6 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // UI
     const goldEl = document.getElementById("gold");
     const invEl = document.getElementById("inv");
     const dialogueEl = document.getElementById("dialogue");
@@ -72,7 +71,6 @@
       dialogueEl.innerHTML = "";
     }
 
-    // Сцена
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({ color: 0x228822 }));
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
@@ -91,7 +89,11 @@
     scene.add(enemy);
     let enemyAlive = true;
 
-    // Камера
+    const enemyInside = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+    enemyInside.position.set(0, 1, 25);
+    scene.add(enemyInside);
+    let enemyInsideAlive = true;
+
     let yaw = 0, pitch = 0;
     document.body.addEventListener("click", () => {
       if (document.pointerLockElement !== renderer.domElement)
@@ -155,38 +157,10 @@
       npcs.push(npc);
     }
 
-    // Продолжение (ЧАСТЬ 2/2) следует…
-    // Квест и замок
+    // Продолжение в ЧАСТИ 2/2...
     let questGiven = false, questComplete = false, gateOpen = false;
     let gate = null;
     const obstacles = [];
-
-    createNPC(-5, 0, 0xffff00, () => {
-      if (!questGiven) {
-        showDialogue("Привет, убей врага перед замком!", ["Принять", "Позже"], choice => {
-          if (choice === "Принять") questGiven = true;
-        });
-      } else if (questComplete) {
-        showDialogue("Ты молодец! Я открою ворота!", ["Ура!"], () => {
-          gold += 20;
-          updateUI();
-          gateOpen = true;
-          obstacles.splice(obstacles.indexOf(gate), 1);
-        });
-      } else {
-        showDialogue("Враг ещё жив!");
-      }
-    });
-
-    createNPC(5, 0, 0xff8800, () => {
-      showDialogue("Купи меч за 10 золота?", ["Купить", "Нет"], choice => {
-        if (choice === "Купить" && gold >= 10) {
-          gold -= 10;
-          inventory.push("Меч");
-          updateUI();
-        }
-      });
-    });
 
     function addObstacle(mesh) {
       const box = new THREE.Box3().setFromObject(mesh);
@@ -204,20 +178,57 @@
       buildWall(0, 3, 30, 20, 6, 1);  // задняя
       buildWall(-10, 3, 20, 1, 6, 20); // левая
       buildWall(10, 3, 20, 1, 6, 20);  // правая
+      buildWall(-6, 3, 10, 10, 6, 1);   // слева от ворот
+      buildWall(6, 3, 10, 10, 6, 1);    // справа от ворот
 
-      gate = new THREE.Mesh(new THREE.BoxGeometry(4, 5, 1), new THREE.MeshBasicMaterial({ color: 0x552200 }));
+      gate = new THREE.Mesh(new THREE.BoxGeometry(2, 5, 1), new THREE.MeshBasicMaterial({ color: 0x552200 }));
       gate.position.set(0, 2.5, 10);
       scene.add(gate);
       addObstacle(gate);
     }
 
+    function aabbCollision(pos, size) {
+      const box = new THREE.Box3().setFromCenterAndSize(pos.clone(), size);
+      for (let o of obstacles) {
+        const otherBox = new THREE.Box3().setFromObject(o.mesh);
+        if (box.intersectsBox(otherBox)) return true;
+      }
+      return false;
+    }
+
     buildCastle();
 
-    // Пердунчик
+    createNPC(-5, 0, 0xffff00, () => {
+      if (!questGiven) {
+        showDialogue("Привет, убей врага у ворот!", ["Принять", "Позже"], choice => {
+          if (choice === "Принять") questGiven = true;
+        });
+      } else if (questComplete) {
+        showDialogue("Отлично! Открываю ворота!", ["Спасибо!"], () => {
+          gold += 20;
+          updateUI();
+          gateOpen = true;
+          obstacles.splice(obstacles.indexOf(obstacles.find(o => o.mesh === gate)), 1);
+        });
+      } else {
+        showDialogue("Враг ещё жив!");
+      }
+    });
+
+    createNPC(5, 0, 0xff8800, () => {
+      showDialogue("Купи меч за 10 золота?", ["Купить", "Нет"], choice => {
+        if (choice === "Купить" && gold >= 10) {
+          gold -= 10;
+          inventory.push("Меч");
+          updateUI();
+        }
+      });
+    });
+
     const fartDude = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshBasicMaterial({ color: 0x88ffff }));
     fartDude.position.set(0, 10, 0);
     fartDude.userData.talk = () => {
-      showDialogue("ПУУУФ! Газ спасёт мир!", ["Ха!", "Фу!"]);
+      showDialogue("ПУУФ! Я летучий герой газа!", ["Супер!", "Фу"]);
     };
     scene.add(fartDude);
     npcs.push(fartDude);
@@ -227,16 +238,6 @@
     const fartGeo = new THREE.SphereGeometry(0.5, 8, 8);
     const fartMat = new THREE.MeshBasicMaterial({ color: 0x88ff88, transparent: true, opacity: 0.7 });
     let fartTimer = 0;
-
-    // Коллизии AABB
-    function aabbCollision(pos, size) {
-      const box = new THREE.Box3().setFromCenterAndSize(pos.clone(), size);
-      for (let o of obstacles) {
-        const otherBox = new THREE.Box3().setFromObject(o.mesh);
-        if (box.intersectsBox(otherBox)) return true;
-      }
-      return false;
-    }
 
     function animate() {
       requestAnimationFrame(animate);
@@ -274,6 +275,12 @@
             gold += 10;
             updateUI();
             if (questGiven) questComplete = true;
+          }
+          if (enemyInsideAlive && player.position.distanceTo(enemyInside.position) < 2) {
+            scene.remove(enemyInside);
+            enemyInsideAlive = false;
+            gold += 50;
+            updateUI();
           }
         }
       }
