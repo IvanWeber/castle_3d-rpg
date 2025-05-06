@@ -1,21 +1,16 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <title>3D RPG с замком и Пердунчиком</title>
+  <meta charset="UTF-8">
+  <title>3D RPG с замком, коллизиями и Пердунчиком</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
     #ui {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 10px;
-      color: white;
-      font-family: sans-serif;
-      max-width: 400px;
-      border-radius: 8px;
+      position: absolute; top: 10px; left: 10px;
+      background: rgba(0,0,0,0.5); color: white;
+      padding: 10px; font-family: sans-serif;
+      max-width: 400px; border-radius: 8px;
     }
     #dialogue { margin-top: 10px; }
     .choice { padding: 4px 6px; }
@@ -30,9 +25,8 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
   <script>
-    // Основные переменные
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
@@ -78,14 +72,13 @@
       dialogueEl.innerHTML = "";
     }
 
-    // Пол
+    // Сцена
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({ color: 0x228822 }));
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
 
-    // Игрок
     const player = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0x4444ff }));
-    player.position.y = 1;
+    player.position.set(0, 1, 0);
     scene.add(player);
 
     const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.2), new THREE.MeshBasicMaterial({ color: 0xcccccc }));
@@ -93,13 +86,12 @@
     sword.visible = false;
     player.add(sword);
 
-    // Враг
     const enemy = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
     enemy.position.set(0, 1, -10);
     scene.add(enemy);
     let enemyAlive = true;
 
-    // Камера и мышь
+    // Камера
     let yaw = 0, pitch = 0;
     document.body.addEventListener("click", () => {
       if (document.pointerLockElement !== renderer.domElement)
@@ -113,7 +105,6 @@
       }
     });
 
-    // Управление
     const keys = {};
     document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
     document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
@@ -145,7 +136,6 @@
       }
     });
 
-    // Атака
     let isAttacking = false;
     let attackTimer = 0;
     function attack() {
@@ -155,7 +145,6 @@
       }
     }
 
-    // NPC
     const npcs = [];
 
     function createNPC(x, z, color, talkFn) {
@@ -166,23 +155,26 @@
       npcs.push(npc);
     }
 
-    // Квест и ворота
-    let questGiven = false, questComplete = false, gateOpen = false, gate = null;
+    // Продолжение (ЧАСТЬ 2/2) следует…
+    // Квест и замок
+    let questGiven = false, questComplete = false, gateOpen = false;
+    let gate = null;
+    const obstacles = [];
 
     createNPC(-5, 0, 0xffff00, () => {
       if (!questGiven) {
-        showDialogue("Привет, убей монстра!", ["Взять квест", "Позже"], choice => {
-          if (choice === "Взять квест") questGiven = true;
+        showDialogue("Привет, убей врага перед замком!", ["Принять", "Позже"], choice => {
+          if (choice === "Принять") questGiven = true;
         });
       } else if (questComplete) {
-        showDialogue("Молодец! Открываю ворота!", ["Спасибо"], () => {
+        showDialogue("Ты молодец! Я открою ворота!", ["Ура!"], () => {
           gold += 20;
           updateUI();
-          openGate();
-          questGiven = questComplete = false;
+          gateOpen = true;
+          obstacles.splice(obstacles.indexOf(gate), 1);
         });
       } else {
-        showDialogue("Монстр ещё жив!");
+        showDialogue("Враг ещё жив!");
       }
     });
 
@@ -196,35 +188,36 @@
       });
     });
 
-    // Ворота замка
-    function buildCastle() {
-      const mat = new THREE.MeshBasicMaterial({ color: 0x777777 });
-      const tower = new THREE.BoxGeometry(2, 6, 2);
-
-      const left = new THREE.Mesh(tower, mat);
-      left.position.set(-3, 3, 20);
-      scene.add(left);
-
-      const right = new THREE.Mesh(tower, mat);
-      right.position.set(3, 3, 20);
-      scene.add(right);
-
-      gate = new THREE.Mesh(new THREE.BoxGeometry(3, 4, 0.5), new THREE.MeshBasicMaterial({ color: 0x552200 }));
-      gate.position.set(0, 2, 20);
-      scene.add(gate);
+    function addObstacle(mesh) {
+      const box = new THREE.Box3().setFromObject(mesh);
+      obstacles.push({ mesh, box });
     }
 
-    function openGate() {
-      gateOpen = true;
+    function buildWall(x, y, z, w, h, d) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: 0x888888 }));
+      wall.position.set(x, y, z);
+      scene.add(wall);
+      addObstacle(wall);
+    }
+
+    function buildCastle() {
+      buildWall(0, 3, 30, 20, 6, 1);  // задняя
+      buildWall(-10, 3, 20, 1, 6, 20); // левая
+      buildWall(10, 3, 20, 1, 6, 20);  // правая
+
+      gate = new THREE.Mesh(new THREE.BoxGeometry(4, 5, 1), new THREE.MeshBasicMaterial({ color: 0x552200 }));
+      gate.position.set(0, 2.5, 10);
+      scene.add(gate);
+      addObstacle(gate);
     }
 
     buildCastle();
 
-    // === Пердунчик ===
+    // Пердунчик
     const fartDude = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshBasicMaterial({ color: 0x88ffff }));
     fartDude.position.set(0, 10, 0);
     fartDude.userData.talk = () => {
-      showDialogue("ПУУУФ! Это был я. Газ победит зло.", ["Аха-ха!", "Бее..."]);
+      showDialogue("ПУУУФ! Газ спасёт мир!", ["Ха!", "Фу!"]);
     };
     scene.add(fartDude);
     npcs.push(fartDude);
@@ -235,19 +228,40 @@
     const fartMat = new THREE.MeshBasicMaterial({ color: 0x88ff88, transparent: true, opacity: 0.7 });
     let fartTimer = 0;
 
-    // Анимация
+    // Коллизии AABB
+    function aabbCollision(pos, size) {
+      const box = new THREE.Box3().setFromCenterAndSize(pos.clone(), size);
+      for (let o of obstacles) {
+        const otherBox = new THREE.Box3().setFromObject(o.mesh);
+        if (box.intersectsBox(otherBox)) return true;
+      }
+      return false;
+    }
+
     function animate() {
       requestAnimationFrame(animate);
 
       const dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
       const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0)).normalize();
+      const speed = 0.15;
+      const size = new THREE.Vector3(1, 2, 1);
 
       if (!isTalking) {
-        if (keys["w"]) player.position.addScaledVector(dir, 0.15);
-        if (keys["s"]) player.position.addScaledVector(dir, -0.15);
-        if (keys["a"]) player.position.addScaledVector(right, -0.15);
-        if (keys["d"]) player.position.addScaledVector(right, 0.15);
+        let moveX = 0, moveZ = 0;
+        if (keys["w"]) { moveX += dir.x; moveZ += dir.z; }
+        if (keys["s"]) { moveX -= dir.x; moveZ -= dir.z; }
+        if (keys["a"]) { moveX -= right.x; moveZ -= right.z; }
+        if (keys["d"]) { moveX += right.x; moveZ += right.z; }
+
+        const move = new THREE.Vector3(moveX, 0, moveZ).normalize().multiplyScalar(speed);
+        const tryX = player.position.clone().add(new THREE.Vector3(move.x, 0, 0));
+        const tryZ = player.position.clone().add(new THREE.Vector3(0, 0, move.z));
+
+        if (!aabbCollision(tryX, size)) player.position.x += move.x;
+        if (!aabbCollision(tryZ, size)) player.position.z += move.z;
       }
+
+      player.rotation.y = yaw;
 
       if (isAttacking) {
         attackTimer -= 0.016;
@@ -264,7 +278,7 @@
         }
       }
 
-      if (gateOpen && gate && gate.position.y < 10) {
+      if (gateOpen && gate.position.y < 10) {
         gate.position.y += 0.1;
       }
 
@@ -275,10 +289,10 @@
       if (fartTimer <= 0) {
         const cloud = new THREE.Mesh(fartGeo, fartMat.clone());
         cloud.position.copy(fartDude.position);
-        cloud.userData.life = 3.0;
+        cloud.userData.life = 3;
         fartGroup.add(cloud);
         fartClouds.push(cloud);
-        fartTimer = 3 + Math.random();
+        fartTimer = 2 + Math.random();
       }
 
       fartClouds.forEach(c => {
@@ -286,7 +300,7 @@
         c.material.opacity = c.userData.life / 3;
         c.position.y += 0.01;
       });
-      while (fartClouds.length && fartClouds[0].userData.life <= 0) {
+      while (fartClouds.length && fartClouds[0]?.userData.life <= 0) {
         fartGroup.remove(fartClouds.shift());
       }
 
