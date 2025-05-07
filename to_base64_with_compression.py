@@ -5,9 +5,13 @@ from io import BytesIO
 def compress_and_encode_image(input_path, output_txt_path, scale_factor=0.33, quality=25):
     # Открываем изображение
     with Image.open(input_path) as img:
+        # Убираем альфа-канал, если есть
+        if img.mode == 'RGBA':
+            img = img.convert('RGB')
+
         # Уменьшаем размер
         new_size = (int(img.width * scale_factor), int(img.height * scale_factor))
-        img_resized = img.resize(new_size, Image.ANTIALIAS)
+        img_resized = img.resize(new_size, Image.Resampling.LANCZOS)
 
         # Сохраняем в память как JPEG с высоким сжатием
         buffer = BytesIO()
@@ -22,4 +26,4 @@ def compress_and_encode_image(input_path, output_txt_path, scale_factor=0.33, qu
             out_file.write("data:image/jpeg;base64," + encoded)
 
 # Пример использования
-compress_and_encode_image("face-1.png", "face-1.txt")
+compress_and_encode_image("grass.png", "grass.txt")
