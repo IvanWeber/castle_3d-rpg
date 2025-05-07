@@ -92,51 +92,48 @@
   group.position.set(x, 0, z);
   const mat = material || new THREE.MeshStandardMaterial({ color });
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.5), mat);
-  body.position.y = 1.6;
+  // Меньшее тело
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.4), mat);
+  body.position.y = 1.4;
   body.castShadow = true;
   group.add(body);
 
-  // Голова с 6 гранями (шестигранный цилиндр)
-  // Голова: цилиндр с полусферой сверху
+  // Голова: цилиндр + уменьшенная полусфера
   const headGroup = new THREE.Group();
-
-  // Нижняя часть — шестигранный цилиндр (основа головы)
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.4, 6), mat);
-  base.position.y = 2.3;
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.20, 0.35, 6), mat);
+  base.position.y = 2.0;
   base.castShadow = true;
   headGroup.add(base);
 
-  // Верхняя часть — немного меньшая полусфера (крышка)
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.20, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat);
-  cap.position.y = 2.48; // немного ниже, чтобы не висела
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat);
+  cap.position.y = 2.16;
   cap.castShadow = true;
   headGroup.add(cap);
-
   group.add(headGroup);
-
 
   function createArm(side) {
     const shoulder = new THREE.Group();
-    const upper = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.5, 0.25), mat);
-    upper.position.y = -0.25;
+    const upper = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), mat);
+    upper.position.y = -0.2;
     shoulder.add(upper);
 
     const elbow = new THREE.Group();
-    elbow.position.y = -0.5;
-    const forearm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.2), mat);
-    forearm.position.y = -0.25;
+    elbow.position.y = -0.4;
+    const forearm = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), mat);
+    forearm.position.y = -0.2;
     elbow.add(forearm);
 
     const wrist = new THREE.Group();
-    wrist.position.y = -0.5;
-    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mat);
-    hand.position.y = -0.1;
+    wrist.position.y = -0.4;
+    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.18), mat);
+    hand.position.y = -0.09;
     wrist.add(hand);
 
     elbow.add(wrist);
     shoulder.add(elbow);
-    shoulder.position.set(side * 0.65, 2, 0);
+
+    // Подняты выше (тело ниже)
+    shoulder.position.set(side * 0.45, 1.8, 0);
     group.add(shoulder);
 
     return { shoulder, elbow, wrist };
@@ -144,25 +141,25 @@
 
   function createLeg(side) {
     const hip = new THREE.Group();
-    const thigh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.3), mat);
+    const thigh = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.5, 0.25), mat);
     thigh.position.y = -0.25;
     hip.add(thigh);
 
     const knee = new THREE.Group();
     knee.position.y = -0.5;
-    const shin = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.5, 0.25), mat);
+    const shin = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.2), mat);
     shin.position.y = -0.25;
     knee.add(shin);
 
     const ankle = new THREE.Group();
     ankle.position.y = -0.5;
-    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.5), mat);
-    foot.position.set(0, -0.1, 0.1);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.15, 0.4), mat);
+    foot.position.set(0, -0.075, 0.1);
     ankle.add(foot);
 
     knee.add(ankle);
     hip.add(knee);
-    hip.position.set(side * 0.25, 1, 0);
+    hip.position.set(side * 0.22, 0.9, 0); // ниже, т.к. тело ниже
     group.add(hip);
 
     return { hip, knee, ankle };
@@ -186,8 +183,8 @@
     rightWrist: rightArm.wrist,
     leftWrist: leftArm.wrist
   };
-
 }
+
 
 
   const keys = {};
