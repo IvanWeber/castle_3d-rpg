@@ -30,13 +30,23 @@
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; // мягкие тени
+
   document.body.appendChild(renderer.domElement);
 
   // Свет
-  const light = new THREE.DirectionalLight(0xffffff, 2);
-  light.position.set(-10, 20, 10);
-  light.castShadow = true;
-  scene.add(light);
+  const light = new THREE.DirectionalLight(0xffffff, 1.5);
+light.position.set(-10, 20, 10);
+light.castShadow = true;
+light.shadow.mapSize.set(2048, 2048);
+light.shadow.camera.near = 0.5;
+light.shadow.camera.far = 100;
+light.shadow.camera.left = -50;
+light.shadow.camera.right = 50;
+light.shadow.camera.top = 50;
+light.shadow.camera.bottom = -50;
+scene.add(light);
+
 
   const ambient = new THREE.AmbientLight(0xffffff, 0.6); // мягкий фоновый свет
   scene.add(ambient);
