@@ -376,12 +376,17 @@
     if (dist < 5 && dist > 1.5) {
       const dir = player.position.clone().sub(enemyObj.position).normalize();
       enemyObj.position.add(dir.multiplyScalar(0.05));
+
+      // Поворот врага лицом к игроку
+      enemyObj.lookAt(player.position.clone().setY(enemyObj.position.y));
+
       if (!enemyObj.alreadyChasing) {
         enemyObj.alreadyChasing = true;
         enemyObj.healthBar.container.style.display = "block";
       }
     }
   }
+
   function aabb(boxA, boxB) {
     return (
       boxA.max.x > boxB.min.x && boxA.min.x < boxB.max.x &&
