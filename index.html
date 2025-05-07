@@ -88,54 +88,91 @@
   });
 
   function createCharacter({ color = 0xaaaaaa, material = null, x = 0, z = 0 }) {
-    const group = new THREE.Group();
-    group.position.set(x, 0, z);
+  const group = new THREE.Group();
+  group.position.set(x, 0, z);
+  const mat = material || new THREE.MeshStandardMaterial({ color });
 
-    const mat = material || new THREE.MeshStandardMaterial({ color });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.5), mat);
+  body.position.y = 1.6;
+  body.castShadow = true;
+  group.add(body);
 
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.5), mat);
-    body.position.y = 1.6;
-    body.castShadow = true;
-    group.add(body);
+  // Голова с 6 гранями (шестигранный цилиндр)
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.6, 6), mat);
+  head.position.y = 2.4;
+  head.castShadow = true;
+  group.add(head);
 
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), mat);
-    head.position.y = 2.4;
-    head.castShadow = true;
-    group.add(head);
+  function createArm(side) {
+    const shoulder = new THREE.Group();
+    const upper = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.5, 0.25), mat);
+    upper.position.y = -0.25;
+    shoulder.add(upper);
 
-    const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1, 0.3), mat);
-    leftArm.position.set(-0.65, 1.6, 0);
-    leftArm.castShadow = true;
-    group.add(leftArm);
+    const elbow = new THREE.Group();
+    elbow.position.y = -0.5;
+    const forearm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.2), mat);
+    forearm.position.y = -0.25;
+    elbow.add(forearm);
 
-    const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1, 0.3), mat);
-    rightArm.position.set(0.65, 1.6, 0);
-    rightArm.castShadow = true;
-    group.add(rightArm);
+    const wrist = new THREE.Group();
+    wrist.position.y = -0.5;
+    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mat);
+    hand.position.y = -0.1;
+    wrist.add(hand);
 
-    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1, 0.4), mat);
-    leftLeg.position.set(-0.25, 0.5, 0);
-    leftLeg.castShadow = true;
-    group.add(leftLeg);
+    elbow.add(wrist);
+    shoulder.add(elbow);
+    shoulder.position.set(side * 0.65, 2, 0);
+    group.add(shoulder);
 
-    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1, 0.4), mat);
-    rightLeg.position.set(0.25, 0.5, 0);
-    rightLeg.castShadow = true;
-    group.add(rightLeg);
-
-    leftArm.name = "leftArm";
-    rightArm.name = "rightArm";
-    leftLeg.name = "leftLeg";
-    rightLeg.name = "rightLeg";
-
-    return {
-      group,
-      rightArm,
-      leftArm,
-      rightLeg,
-      leftLeg
-    };
+    return { shoulder, elbow, wrist };
   }
+
+  function createLeg(side) {
+    const hip = new THREE.Group();
+    const thigh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.3), mat);
+    thigh.position.y = -0.25;
+    hip.add(thigh);
+
+    const knee = new THREE.Group();
+    knee.position.y = -0.5;
+    const shin = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.5, 0.25), mat);
+    shin.position.y = -0.25;
+    knee.add(shin);
+
+    const ankle = new THREE.Group();
+    ankle.position.y = -0.5;
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.5), mat);
+    foot.position.set(0, -0.1, 0.1);
+    ankle.add(foot);
+
+    knee.add(ankle);
+    hip.add(knee);
+    hip.position.set(side * 0.25, 1, 0);
+    group.add(hip);
+
+    return { hip, knee, ankle };
+  }
+
+  const leftArm = createArm(-1);
+  const rightArm = createArm(1);
+  const leftLeg = createLeg(-1);
+  const rightLeg = createLeg(1);
+
+  return {
+    group,
+    rightArm: rightArm.shoulder,
+    leftArm: leftArm.shoulder,
+    rightLeg: rightLeg.hip,
+    leftLeg: leftLeg.hip,
+    rightElbow: rightArm.elbow,
+    leftElbow: leftArm.elbow,
+    rightKnee: rightLeg.knee,
+    leftKnee: leftLeg.knee
+  };
+}
+
 
   const keys = {};
   document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
@@ -829,21 +866,33 @@
 
       playerLeftArm.rotation.x = cos;
       playerRightArm.rotation.x = -cos;
+      playerParts.leftElbow.rotation.x = cos / 2;
+      playerParts.rightElbow.rotation.x = -cos / 2;
+
       playerLeftLeg.rotation.x = -cos;
       playerRightLeg.rotation.x = cos;
+      playerParts.leftKnee.rotation.x = -cos / 2;
+      playerParts.rightKnee.rotation.x = cos / 2;
     } else {
       playerLeftArm.rotation.x = 0;
       playerRightArm.rotation.x = 0;
+      playerParts.leftElbow.rotation.x = 0;
+      playerParts.rightElbow.rotation.x = 0;
       playerLeftLeg.rotation.x = 0;
       playerRightLeg.rotation.x = 0;
+      playerParts.leftKnee.rotation.x = 0;
+      playerParts.rightKnee.rotation.x = 0;
     }
+
 
     // Анимация удара — правая рука
     if (attackAnimTimer > 0) {
       attackAnimTimer -= 0.016;
       const t = 1 - attackAnimTimer / 0.2;
       playerRightArm.rotation.x = -Math.sin(t * Math.PI) * 1.2;
+      playerParts.rightElbow.rotation.x = -Math.sin(t * Math.PI) * 0.6;
     }
+
 
 
     [enemy, enemyInside].forEach(en => {
