@@ -81,6 +81,7 @@
   const loader = new THREE.TextureLoader();
   const skyTextureBase64 = ``
   const faceTextureBase64 = ``
+  const floorTextureBase64 = ``
   loader.load(skyTextureBase64, texture => {
     const skyGeo = new THREE.SphereGeometry(500, 32, 32);
     const skyMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide });
@@ -686,7 +687,15 @@
 
 
 
-  const matFloor = new THREE.MeshStandardMaterial({ color: 0x228822 });
+  const matFloor = new THREE.MeshStandardMaterial({});
+  loader.load(floorTextureBase64, texture => {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(50, 50); // Повтор по X и Z
+    matFloor.map = texture;
+    matFloor.needsUpdate = true;
+  });
+
   const floor = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), matFloor);
   floor.position.y = -0.5;
   floor.receiveShadow = true;
