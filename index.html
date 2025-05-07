@@ -550,9 +550,9 @@
       gate.position.y += 0.1;
     }
 
-    const camX = player.position.x - Math.sin(yaw) * 5;
+    const camX = player.position.x - Math.sin(yaw) * 7;
     const camY = player.position.y + 2 + Math.sin(pitch) * 5;
-    const camZ = player.position.z - Math.cos(yaw) * 5;
+    const camZ = player.position.z - Math.cos(yaw) * 7;
     camera.position.set(camX, camY, camZ);
     camera.lookAt(player.position);
 
