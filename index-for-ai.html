@@ -80,6 +80,7 @@
 
   const loader = new THREE.TextureLoader();
   const skyTextureBase64 = ``
+  const faceTextureBase64 = ``
   loader.load(skyTextureBase64, texture => {
     const skyGeo = new THREE.SphereGeometry(500, 32, 32);
     const skyMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide });
@@ -110,6 +111,14 @@
   cap.castShadow = true;
   headGroup.add(cap);
   group.add(headGroup);
+
+  loader.load(faceTextureBase64, texture => {
+    const faceMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), faceMat);
+    face.position.set(0, 2.5, 0.22); // чуть впереди головы
+    headGroup.add(face);
+  });
+
 
   function createArm(side) {
     const shoulder = new THREE.Group();
