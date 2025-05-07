@@ -169,8 +169,11 @@
     rightElbow: rightArm.elbow,
     leftElbow: leftArm.elbow,
     rightKnee: rightLeg.knee,
-    leftKnee: leftLeg.knee
+    leftKnee: leftLeg.knee,
+    rightWrist: rightArm.wrist,
+    leftWrist: leftArm.wrist
   };
+
 }
 
 
@@ -215,22 +218,34 @@
 
   const matSword = new THREE.MeshStandardMaterial({ color: 0xcccccc });
   const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.2), matSword);
-  sword.position.set(0, -0.5, 0);
-  sword.visible = false;
   sword.castShadow = true;
-  playerRightArm.add(sword);
+  sword.visible = false;
 
-  const fist = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), new THREE.MeshStandardMaterial({ color: 0xffffff }));
-  fist.position.set(0, -0.6, 0);
-  fist.visible = true;
-  fist.castShadow = true;
-  playerRightArm.add(fist);
-
-  const claw = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: 0xff00ff }));
-  claw.position.set(0, -0.5, 0);
-  claw.visible = false;
+  const matClaw = new THREE.MeshStandardMaterial({ color: 0xff00ff });
+  const claw = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), matClaw);
   claw.castShadow = true;
-  playerRightArm.add(claw);
+  claw.visible = false;
+
+  const matFist = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const fist = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), matFist);
+  fist.castShadow = true;
+  fist.visible = true;
+
+  const rightHand = playerParts.rightWrist.children[0]; // это точно hand
+  rightHand.add(sword);
+  rightHand.add(claw);
+  rightHand.add(fist);
+
+  // Расположение — "торчит из кисти под углом 90°"
+  sword.position.set(0, -0.3, 0.2); // ближе к кисти
+  sword.rotation.x = Math.PI / 2;
+
+  claw.position.set(0, -0.2, 0.15);
+  claw.rotation.x = Math.PI / 2;
+
+
+  fist.position.set(0, -0.6, 0);
+
 
   let currentWeapon = "Кулак";
 
@@ -888,10 +903,28 @@
     // Анимация удара — правая рука
     if (attackAnimTimer > 0) {
       attackAnimTimer -= 0.016;
-      const t = 1 - attackAnimTimer / 0.2;
-      playerRightArm.rotation.x = -Math.sin(t * Math.PI) * 1.2;
-      playerParts.rightElbow.rotation.x = -Math.sin(t * Math.PI) * 0.6;
+      const totalTime = 0.15;
+      const raiseTime = 0.1;
+      const t = 1 - attackAnimTimer / totalTime;
+
+      let swing;
+      if (t < raiseTime / totalTime) {
+        // фаза подъема: от 0 до -90°
+        swing = -Math.PI / 2 * (t * totalTime / raiseTime);
+      } else {
+        // фаза удара вниз: от -90° до -180°
+        const tt = (t - raiseTime / totalTime) / (1 - raiseTime / totalTime);
+        swing = -Math.PI / 2 - Math.PI / 2 * tt;
+      }
+
+      playerRightArm.rotation.x = swing;
+      playerParts.rightElbow.rotation.x = 0;
+      playerParts.rightWrist.rotation.x = 0;
     }
+
+
+
+
 
 
 
