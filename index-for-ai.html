@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>3D RPG с замком без зазоров и врагом внутри</title>
+  <title>3D RPG — всё вместе</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -18,324 +18,326 @@
   </style>
 </head>
 <body>
-  <div id="ui">
-    <div>Золото: <span id="gold">0</span></div>
-    <div>Инвентарь: <span id="inv">пусто</span></div>
-    <div id="dialogue"></div>
-  </div>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-  <script>
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+<div id="ui">
+  <div>Золото: <span id="gold">0</span></div>
+  <div>Инвентарь: <span id="inv">пусто</span></div>
+  <div id="dialogue"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script>
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
 
-    const goldEl = document.getElementById("gold");
-    const invEl = document.getElementById("inv");
-    const dialogueEl = document.getElementById("dialogue");
+  const goldEl = document.getElementById("gold");
+  const invEl = document.getElementById("inv");
+  const dialogueEl = document.getElementById("dialogue");
 
-    let gold = 0;
-    let inventory = [];
-    let isTalking = false;
-    let currentChoices = [];
-    let currentCallback = null;
-    let selectedIndex = 0;
-
-    const loader = new THREE.TextureLoader();
-
-    const skyTextureBase64 =``
-    loader.load(skyTextureBase64, texture => {
-    const skyGeo = new THREE.SphereGeometry(500, 32, 32);
-    const skyMat = new THREE.MeshBasicMaterial({
-        map: texture,
-        side: THREE.BackSide,
-    });
-    const sky = new THREE.Mesh(skyGeo, skyMat);
-    scene.add(sky);
-    });
+  let gold = 0;
+  let inventory = [];
+  let isTalking = false;
+  let currentChoices = [];
+  let currentCallback = null;
+  let selectedIndex = 0;
 
 
-    function updateUI() {
-      goldEl.textContent = gold;
-      invEl.textContent = inventory.join(", ") || "пусто";
+  const loader = new THREE.TextureLoader();
+
+const skyTextureBase64 =``
+loader.load(skyTextureBase64, texture => {
+const skyGeo = new THREE.SphereGeometry(500, 32, 32);
+const skyMat = new THREE.MeshBasicMaterial({
+    map: texture,
+    side: THREE.BackSide,
+});
+const sky = new THREE.Mesh(skyGeo, skyMat);
+scene.add(sky);
+});
+
+
+  const keys = {};
+  document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+  document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+  let yaw = 0, pitch = 0;
+  document.body.addEventListener("click", () => {
+    if (document.pointerLockElement !== renderer.domElement)
+      renderer.domElement.requestPointerLock();
+  });
+  document.addEventListener("mousemove", e => {
+    if (document.pointerLockElement === renderer.domElement) {
+      yaw -= e.movementX * 0.002;
+      pitch += e.movementY * 0.002;
+      pitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch));
     }
+  });
 
-    function showDialogue(text, choices = [], callback = null) {
-      isTalking = true;
-      selectedIndex = 0;
-      currentChoices = choices;
-      currentCallback = callback;
-      dialogueEl.innerHTML = `<div>${text}</div>` + choices.map((c, i) =>
-        `<div class="choice${i === 0 ? ' selected' : ''}">${c}</div>`
-      ).join("");
+  function updateUI() {
+    goldEl.textContent = gold;
+    invEl.textContent = inventory.join(", ") || "пусто";
+  }
+
+  function showDialogue(text, choices = [], callback = null) {
+    isTalking = true;
+    selectedIndex = 0;
+    currentChoices = choices;
+    currentCallback = callback;
+    dialogueEl.innerHTML = `<div>${text}</div>` + choices.map((c, i) =>
+      `<div class="choice${i === 0 ? ' selected' : ''}">${c}</div>`).join("");
+  }
+
+  function updateChoicesUI() {
+    const elems = dialogueEl.querySelectorAll(".choice");
+    elems.forEach((el, i) => {
+      el.className = "choice" + (i === selectedIndex ? " selected" : "");
+    });
+  }
+
+  function closeDialogue() {
+    isTalking = false;
+    currentChoices = [];
+    currentCallback = null;
+    dialogueEl.innerHTML = "";
+  }
+
+  document.addEventListener("keydown", e => {
+    if (isTalking) {
+      if (["w", "a", "arrowup"].includes(e.key.toLowerCase())) {
+        selectedIndex = (selectedIndex - 1 + currentChoices.length) % currentChoices.length;
+        updateChoicesUI();
+      }
+      if (["s", "d", "arrowdown"].includes(e.key.toLowerCase())) {
+        selectedIndex = (selectedIndex + 1) % currentChoices.length;
+        updateChoicesUI();
+      }
+      if (e.key === "Enter") {
+        const choice = currentChoices[selectedIndex];
+        if (currentCallback) currentCallback(choice);
+        closeDialogue();
+      }
+    } else {
+      if (e.key.toLowerCase() === "e") {
+        const npc = npcs.find(n => n.position.distanceTo(player.position) < 2.5);
+        if (npc) npc.userData.talk();
+      }
+      if (e.key.toLowerCase() === "i") {
+        if (inventory.includes("Меч")) sword.visible = true;
+      }
+      if (e.key === " " && isOnGround) {
+        velocityY = jumpStrength;
+        isOnGround = false;
+      }
     }
+  });
 
-    function updateChoicesUI() {
-      const elems = dialogueEl.querySelectorAll(".choice");
-      elems.forEach((el, i) => {
-        el.className = "choice" + (i === selectedIndex ? " selected" : "");
+  const player = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0x4444ff }));
+  player.position.set(0, 1, 0);
+  scene.add(player);
+
+  const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.2), new THREE.MeshBasicMaterial({ color: 0xcccccc }));
+  sword.position.set(0.5, 1, 0);
+  sword.visible = false;
+  player.add(sword);
+
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), new THREE.MeshBasicMaterial({ color: 0x228822 }));
+  floor.position.y = -0.5;
+  scene.add(floor);
+
+  const platform = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 6), new THREE.MeshBasicMaterial({ color: 0x8888ff }));
+  platform.position.set(0, 2, 5);
+  scene.add(platform);
+
+  const obstacles = [floor, platform];
+
+  function addObstacle(mesh) {
+    obstacles.push(mesh);
+  }
+
+  function buildWall(x, y, z, w, h, d) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: 0x888888 }));
+    wall.position.set(x, y, z);
+    scene.add(wall);
+    addObstacle(wall);
+  }
+
+  let gate = null;
+  let gateOpen = false;
+  function buildCastle() {
+    buildWall(0, 3, 30, 20, 6, 1);
+    buildWall(-10, 3, 20, 1, 6, 20);
+    buildWall(10, 3, 20, 1, 6, 20);
+    buildWall(-6, 3, 10, 10, 6, 1);
+    buildWall(6, 3, 10, 10, 6, 1);
+    gate = new THREE.Mesh(new THREE.BoxGeometry(2, 5, 1), new THREE.MeshBasicMaterial({ color: 0x552200 }));
+    gate.position.set(0, 2.5, 10);
+    scene.add(gate);
+    addObstacle(gate);
+  }
+
+  buildCastle();
+
+  function aabb(boxA, boxB) {
+    return (
+      boxA.max.x > boxB.min.x &&
+      boxA.min.x < boxB.max.x &&
+      boxA.max.y > boxB.min.y &&
+      boxA.min.y < boxB.max.y &&
+      boxA.max.z > boxB.min.z &&
+      boxA.min.z < boxB.max.z
+    );
+  }
+
+  function getPlayerBox(pos) {
+    const size = new THREE.Vector3(1, 2, 1);
+    return new THREE.Box3().setFromCenterAndSize(pos, size);
+  }
+
+  function collides(pos) {
+    const box = getPlayerBox(pos);
+    return obstacles.some(obj => {
+      const other = new THREE.Box3().setFromObject(obj);
+      return aabb(box, other);
+    });
+  }
+
+  const npcs = [];
+  let questGiven = false;
+  let questComplete = false;
+
+  function createNPC(x, z, color, talkFn) {
+    const npc = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color }));
+    npc.position.set(x, 1, z);
+    npc.userData.talk = talkFn;
+    scene.add(npc);
+    npcs.push(npc);
+  }
+
+  createNPC(-5, 0, 0xffff00, () => {
+    if (!questGiven) {
+      showDialogue("Привет, убей врага у ворот!", ["Принять", "Позже"], choice => {
+        if (choice === "Принять") questGiven = true;
       });
+    } else if (questComplete) {
+      showDialogue("Отлично! Открываю ворота!", ["Спасибо!"], () => {
+        gold += 20;
+        updateUI();
+        gateOpen = true;
+        obstacles.splice(obstacles.indexOf(gate), 1);
+      });
+    } else {
+      showDialogue("Враг ещё жив!");
     }
+  });
 
-    function closeDialogue() {
-      isTalking = false;
-      currentChoices = [];
-      currentCallback = null;
-      dialogueEl.innerHTML = "";
-    }
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({ color: 0x228822 }));
-    floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
-
-    const player = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0x4444ff }));
-    player.position.set(0, 1, 0);
-    scene.add(player);
-
-    const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.2), new THREE.MeshBasicMaterial({ color: 0xcccccc }));
-    sword.position.set(0.5, 1, 0);
-    sword.visible = false;
-    player.add(sword);
-
-    const enemy = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-    enemy.position.set(0, 1, -10);
-    scene.add(enemy);
-    let enemyAlive = true;
-
-    const enemyInside = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
-    enemyInside.position.set(0, 1, 25);
-    scene.add(enemyInside);
-    let enemyInsideAlive = true;
-
-    let yaw = 0, pitch = 0;
-    document.body.addEventListener("click", () => {
-      if (document.pointerLockElement !== renderer.domElement)
-        renderer.domElement.requestPointerLock();
-    });
-    document.addEventListener("mousemove", e => {
-      if (document.pointerLockElement === renderer.domElement) {
-        yaw -= e.movementX * 0.002;
-        pitch += e.movementY * 0.002;
-        pitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch));
+  createNPC(5, 0, 0xff8800, () => {
+    showDialogue("Купи меч за 10 золота?", ["Купить", "Нет"], choice => {
+      if (choice === "Купить" && gold >= 10) {
+        gold -= 10;
+        inventory.push("Меч");
+        updateUI();
       }
     });
+  });
 
-    const keys = {};
-    document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
-    document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+  const enemy = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+  enemy.position.set(0, 1, -10);
+  scene.add(enemy);
+  let enemyAlive = true;
 
-    document.addEventListener("keydown", e => {
-      if (isTalking) {
-        if (["w", "a", "arrowup"].includes(e.key.toLowerCase())) {
-          selectedIndex = (selectedIndex - 1 + currentChoices.length) % currentChoices.length;
-          updateChoicesUI();
-        }
-        if (["s", "d", "arrowdown"].includes(e.key.toLowerCase())) {
-          selectedIndex = (selectedIndex + 1) % currentChoices.length;
-          updateChoicesUI();
-        }
-        if (e.key === "Enter") {
-          const choice = currentChoices[selectedIndex];
-          if (currentCallback) currentCallback(choice);
-          closeDialogue();
-        }
-      } else {
-        if (e.key.toLowerCase() === "e") {
-          const npc = npcs.find(n => n.position.distanceTo(player.position) < 2.5);
-          if (npc) npc.userData.talk();
-        }
-        if (e.key.toLowerCase() === "i") {
-          if (inventory.includes("Меч")) sword.visible = true;
-        }
-        if (e.key === " ") attack();
-      }
-    });
+  const enemyInside = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+  enemyInside.position.set(0, 1, 25);
+  scene.add(enemyInside);
+  let enemyInsideAlive = true;
 
-    let isAttacking = false;
-    let attackTimer = 0;
-    function attack() {
+  let velocityY = 0;
+  let isOnGround = false;
+  const gravity = -0.02;
+  const jumpStrength = 0.35;
+
+  let isAttacking = false;
+  let attackTimer = 0;
+
+  document.addEventListener("mousedown", e => {
+    if (!isTalking && e.button === 0) {
       if (!isAttacking) {
         isAttacking = true;
         attackTimer = 0.2;
       }
     }
+  });
 
-    const npcs = [];
+  function animate() {
+    requestAnimationFrame(animate);
 
-    function createNPC(x, z, color, talkFn) {
-      const npc = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color }));
-      npc.position.set(x, 1, z);
-      npc.userData.talk = talkFn;
-      scene.add(npc);
-      npcs.push(npc);
+    const dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
+    const speed = 0.15;
+
+    let moveX = 0, moveZ = 0;
+    if (keys["w"]) { moveX += dir.x; moveZ += dir.z; }
+    if (keys["s"]) { moveX -= dir.x; moveZ -= dir.z; }
+    if (keys["a"]) { moveX -= right.x; moveZ -= right.z; }
+    if (keys["d"]) { moveX += right.x; moveZ += right.z; }
+
+    const move = new THREE.Vector3(moveX, 0, moveZ).normalize().multiplyScalar(speed);
+    const pos = player.position.clone();
+
+    const nextX = pos.clone().add(new THREE.Vector3(move.x, 0, 0));
+    if (!collides(nextX)) player.position.x = nextX.x;
+
+    const nextZ = player.position.clone().add(new THREE.Vector3(0, 0, move.z));
+    if (!collides(nextZ)) player.position.z = nextZ.z;
+
+    velocityY += gravity;
+    const nextY = player.position.clone().add(new THREE.Vector3(0, velocityY, 0));
+    if (!collides(nextY)) {
+      player.position.y = nextY.y;
+      isOnGround = false;
+    } else {
+      if (velocityY < 0) isOnGround = true;
+      velocityY = 0;
     }
 
-    // Продолжение в ЧАСТИ 2/2...
-    let questGiven = false, questComplete = false, gateOpen = false;
-    let gate = null;
-    const obstacles = [];
+    player.rotation.y = yaw;
 
-    function addObstacle(mesh) {
-      const box = new THREE.Box3().setFromObject(mesh);
-      obstacles.push({ mesh, box });
-    }
-
-    function buildWall(x, y, z, w, h, d) {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: 0x888888 }));
-      wall.position.set(x, y, z);
-      scene.add(wall);
-      addObstacle(wall);
-    }
-
-    function buildCastle() {
-      buildWall(0, 3, 30, 20, 6, 1);  // задняя
-      buildWall(-10, 3, 20, 1, 6, 20); // левая
-      buildWall(10, 3, 20, 1, 6, 20);  // правая
-      buildWall(-6, 3, 10, 10, 6, 1);   // слева от ворот
-      buildWall(6, 3, 10, 10, 6, 1);    // справа от ворот
-
-      gate = new THREE.Mesh(new THREE.BoxGeometry(2, 5, 1), new THREE.MeshBasicMaterial({ color: 0x552200 }));
-      gate.position.set(0, 2.5, 10);
-      scene.add(gate);
-      addObstacle(gate);
-    }
-
-    function aabbCollision(pos, size) {
-      const box = new THREE.Box3().setFromCenterAndSize(pos.clone(), size);
-      for (let o of obstacles) {
-        const otherBox = new THREE.Box3().setFromObject(o.mesh);
-        if (box.intersectsBox(otherBox)) return true;
-      }
-      return false;
-    }
-
-    buildCastle();
-
-    createNPC(-5, 0, 0xffff00, () => {
-      if (!questGiven) {
-        showDialogue("Привет, убей врага у ворот!", ["Принять", "Позже"], choice => {
-          if (choice === "Принять") questGiven = true;
-        });
-      } else if (questComplete) {
-        showDialogue("Отлично! Открываю ворота!", ["Спасибо!"], () => {
-          gold += 20;
+    if (isAttacking) {
+      attackTimer -= 0.016;
+      if (attackTimer <= 0) {
+        isAttacking = false;
+        if (enemyAlive && player.position.distanceTo(enemy.position) < 2) {
+          scene.remove(enemy);
+          enemyAlive = false;
+          inventory.push("Коготь");
+          gold += 10;
           updateUI();
-          gateOpen = true;
-          obstacles.splice(obstacles.indexOf(obstacles.find(o => o.mesh === gate)), 1);
-        });
-      } else {
-        showDialogue("Враг ещё жив!");
-      }
-    });
-
-    createNPC(5, 0, 0xff8800, () => {
-      showDialogue("Купи меч за 10 золота?", ["Купить", "Нет"], choice => {
-        if (choice === "Купить" && gold >= 10) {
-          gold -= 10;
-          inventory.push("Меч");
+          if (questGiven) questComplete = true;
+        }
+        if (enemyInsideAlive && player.position.distanceTo(enemyInside.position) < 2) {
+          scene.remove(enemyInside);
+          enemyInsideAlive = false;
+          gold += 50;
           updateUI();
         }
-      });
-    });
-
-    const fartDude = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshBasicMaterial({ color: 0x88ffff }));
-    fartDude.position.set(0, 10, 0);
-    fartDude.userData.talk = () => {
-      showDialogue("ПУУФ! Я летучий герой газа!", ["Супер!", "Фу"]);
-    };
-    scene.add(fartDude);
-    npcs.push(fartDude);
-
-    const fartClouds = [], fartGroup = new THREE.Group();
-    scene.add(fartGroup);
-    const fartGeo = new THREE.SphereGeometry(0.5, 8, 8);
-    const fartMat = new THREE.MeshBasicMaterial({ color: 0x88ff88, transparent: true, opacity: 0.7 });
-    let fartTimer = 0;
-
-    function animate() {
-      requestAnimationFrame(animate);
-
-      const dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
-      const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0)).normalize();
-      const speed = 0.15;
-      const size = new THREE.Vector3(1, 2, 1);
-
-      if (!isTalking) {
-        let moveX = 0, moveZ = 0;
-        if (keys["w"]) { moveX += dir.x; moveZ += dir.z; }
-        if (keys["s"]) { moveX -= dir.x; moveZ -= dir.z; }
-        if (keys["a"]) { moveX -= right.x; moveZ -= right.z; }
-        if (keys["d"]) { moveX += right.x; moveZ += right.z; }
-
-        const move = new THREE.Vector3(moveX, 0, moveZ).normalize().multiplyScalar(speed);
-        const tryX = player.position.clone().add(new THREE.Vector3(move.x, 0, 0));
-        const tryZ = player.position.clone().add(new THREE.Vector3(0, 0, move.z));
-
-        if (!aabbCollision(tryX, size)) player.position.x += move.x;
-        if (!aabbCollision(tryZ, size)) player.position.z += move.z;
       }
-
-      player.rotation.y = yaw;
-
-      if (isAttacking) {
-        attackTimer -= 0.016;
-        if (attackTimer <= 0) {
-          isAttacking = false;
-          if (enemyAlive && player.position.distanceTo(enemy.position) < 2) {
-            scene.remove(enemy);
-            enemyAlive = false;
-            inventory.push("Коготь");
-            gold += 10;
-            updateUI();
-            if (questGiven) questComplete = true;
-          }
-          if (enemyInsideAlive && player.position.distanceTo(enemyInside.position) < 2) {
-            scene.remove(enemyInside);
-            enemyInsideAlive = false;
-            gold += 50;
-            updateUI();
-          }
-        }
-      }
-
-      if (gateOpen && gate.position.y < 10) {
-        gate.position.y += 0.1;
-      }
-
-      const t = performance.now() * 0.001;
-      fartDude.position.set(Math.sin(t) * 10, 8 + Math.sin(t * 2), Math.cos(t) * 10);
-
-      fartTimer -= 0.016;
-      if (fartTimer <= 0) {
-        const cloud = new THREE.Mesh(fartGeo, fartMat.clone());
-        cloud.position.copy(fartDude.position);
-        cloud.userData.life = 3;
-        fartGroup.add(cloud);
-        fartClouds.push(cloud);
-        fartTimer = 2 + Math.random();
-      }
-
-      fartClouds.forEach(c => {
-        c.userData.life -= 0.016;
-        c.material.opacity = c.userData.life / 3;
-        c.position.y += 0.01;
-      });
-      while (fartClouds.length && fartClouds[0]?.userData.life <= 0) {
-        fartGroup.remove(fartClouds.shift());
-      }
-
-      const camX = player.position.x - Math.sin(yaw) * 5;
-      const camY = player.position.y + 2 + Math.sin(pitch) * 5;
-      const camZ = player.position.z - Math.cos(yaw) * 5;
-      camera.position.set(camX, camY, camZ);
-      camera.lookAt(player.position);
-
-      renderer.render(scene, camera);
     }
 
-    updateUI();
-    animate();
-  </script>
+    if (gateOpen && gate.position.y < 10) {
+      gate.position.y += 0.1;
+    }
+
+    const camX = player.position.x - Math.sin(yaw) * 5;
+    const camY = player.position.y + 2 + Math.sin(pitch) * 5;
+    const camZ = player.position.z - Math.cos(yaw) * 5;
+    camera.position.set(camX, camY, camZ);
+    camera.lookAt(player.position);
+
+    renderer.render(scene, camera);
+  }
+
+  updateUI();
+  animate();
+</script>
 </body>
 </html>
