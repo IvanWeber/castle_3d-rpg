@@ -274,11 +274,11 @@
 
   createNPC(-5, 0, 0xffff00, () => {
     if (!questGiven) {
-      showDialogue("Привет, убей врага у ворот!", ["Принять", "Позже"], choice => {
+      showDialogue("Мессир Таппенцаль! Выглядите как человек, который может сразить врага у ворот. Сделайте это — и я открою ворота. Не знаю, зачем вам нужно в замок... но раз уж вы здесь, кто я такой, чтобы мешать.", ["Принять", "Позже"], choice => {
         if (choice === "Принять") questGiven = true;
       });
     } else if (questComplete && !rewardGiven) {
-      showDialogue("Отлично! Открываю ворота!", ["Спасибо!"], () => {
+      showDialogue("Превосходно! Вот ваша награда. Я открываю ворота. Не знаю, зачем вам туда... Но там внутри, кстати, ходит розовый субъект... Не спрашивай. Просто не спрашивай.", ["Спасибо!"], () => {
         gold += 20;
         updateUI();
         gateOpen = true;
@@ -286,15 +286,16 @@
         rewardGiven = true;
       });
     } else if (questComplete && rewardGiven) {
-      showDialogue("Ты уже получил награду.");
+      showDialogue("Ворота открыты. Не знаю, зачем вам туда, но... путь свободен.");
     } else {
-      showDialogue("Враг ещё жив!");
+      showDialogue("Сразите врага у ворот. Не медлите, мессир.");
     }
   });
 
+
   createNPC(5, 0, 0xff8800, () => {
     if (!swordSold) {
-      showDialogue("Купи меч за 10 золота?", ["Купить", "Нет"], choice => {
+      showDialogue("Меч. Надёжный, тяжёлый, с историей. Цена — 10 золотых. Убедите себя, что он вам нужен.", ["Купить", "Нет"], choice => {
         if (choice === "Купить" && gold >= 10) {
           gold -= 10;
           inventory.push("Меч");
@@ -303,9 +304,10 @@
         }
       });
     } else {
-      showDialogue("У меня больше нет мечей.");
+      showDialogue("Я продал последний меч. Теперь вы один на один с судьбой.");
     }
   });
+
   function createHealthBar() {
     const bar = document.createElement("div");
     bar.style.position = "absolute";
@@ -612,6 +614,48 @@
 
   updateUI();
   updateHealthUI();
+
+
+  // --- Экран предыстории ---
+  const introOverlay = document.createElement("div");
+  introOverlay.style.position = "fixed";
+  introOverlay.style.top = "0";
+  introOverlay.style.left = "0";
+  introOverlay.style.width = "100%";
+  introOverlay.style.height = "100%";
+  introOverlay.style.background = "black";
+  introOverlay.style.color = "white";
+  introOverlay.style.fontFamily = "serif";
+  introOverlay.style.fontSize = "18px";
+  introOverlay.style.padding = "40px";
+  introOverlay.style.boxSizing = "border-box";
+  introOverlay.style.display = "flex";
+  introOverlay.style.justifyContent = "center";
+  introOverlay.style.alignItems = "center";
+  introOverlay.style.textAlign = "left";
+  introOverlay.style.zIndex = "9999";
+  introOverlay.innerHTML = `
+    <div>
+      <h2 style="margin-top:0">Ein seltsames Beginnen</h2>
+      <p>Вы — Ганс Таппенцаль, человек, который по приказу самого себя прибыл в этот край. Что именно вы должны тут сделать — уже никто не помнит, но все уверены, что это важно.</p>
+      <p>Перед вами — ворота замка, а у ворот — неприятного вида противник. Где-то рядом ходит жёлтый человек, явно стремящийся навязать квест, и оранжевый торговец, предлагающий сомнительное оружие.</p>
+      <p>И, разумеется, замок. Что в нём? Почему вас туда тянет? Эти вопросы не имеют смысла. Вы просто знаете, что должны туда попасть.</p>
+      <p style="margin-top:20px;"><em>Нажмите Enter, чтобы начать</em></p>
+    </div>
+  `;
+  document.body.appendChild(introOverlay);
+
+  document.addEventListener("keydown", function skipIntro(e) {
+    if (e.key === "Enter") {
+      introOverlay.remove();
+      document.removeEventListener("keydown", skipIntro);
+    }
+  });
+
+
+
+
+
   animate();
 </script>
 </body>
