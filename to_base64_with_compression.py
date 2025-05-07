@@ -26,4 +26,4 @@ def compress_and_encode_image(input_path, output_txt_path, scale_factor=0.33, qu
             out_file.write("data:image/jpeg;base64," + encoded)
 
 # Пример использования
-compress_and_encode_image("wall.png", "wall.txt")
+compress_and_encode_image("sky.jpg", "sky.txt")
