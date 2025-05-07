@@ -75,7 +75,7 @@
   const maxHealth = 5;
 
   const loader = new THREE.TextureLoader();
-  const skyTextureBase64 = `` 
+  const skyTextureBase64 = ``
   loader.load(skyTextureBase64, texture => {
     const skyGeo = new THREE.SphereGeometry(500, 32, 32);
     const skyMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide });
@@ -283,6 +283,10 @@
   let questGiven = false;
   let questComplete = false;
 
+  let swordSold = false;
+
+  let rewardGiven = false;
+
   function createNPC(x, z, color, talkFn) {
     const npc = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshStandardMaterial({ color }));
     npc.position.set(x, 1, z);
@@ -292,31 +296,42 @@
     npcs.push(npc);
   }
 
+
+
   createNPC(-5, 0, 0xffff00, () => {
     if (!questGiven) {
       showDialogue("Привет, убей врага у ворот!", ["Принять", "Позже"], choice => {
         if (choice === "Принять") questGiven = true;
       });
-    } else if (questComplete) {
+    } else if (questComplete && !rewardGiven) {
       showDialogue("Отлично! Открываю ворота!", ["Спасибо!"], () => {
         gold += 20;
         updateUI();
         gateOpen = true;
         obstacles.splice(obstacles.indexOf(gate), 1);
+        rewardGiven = true;
       });
+    } else if (questComplete && rewardGiven) {
+      showDialogue("Ты уже получил награду.");
     } else {
       showDialogue("Враг ещё жив!");
     }
   });
 
+
   createNPC(5, 0, 0xff8800, () => {
-    showDialogue("Купи меч за 10 золота?", ["Купить", "Нет"], choice => {
-      if (choice === "Купить" && gold >= 10) {
-        gold -= 10;
-        inventory.push("Меч");
-        updateUI();
-      }
-    });
+    if (!swordSold) {
+      showDialogue("Купи меч за 10 золота?", ["Купить", "Нет"], choice => {
+        if (choice === "Купить" && gold >= 10) {
+          gold -= 10;
+          inventory.push("Меч");
+          swordSold = true;
+          updateUI();
+        }
+      });
+    } else {
+      showDialogue("У меня больше нет мечей.");
+    }
   });
 
   function createHealthBar() {
