@@ -166,8 +166,20 @@
         if (npc) npc.userData.talk();
       }
       if (e.key.toLowerCase() === "i") {
-        if (inventory.includes("Меч")) sword.visible = true;
+        if (!isTalking) {
+          const choices = ["Кулак"];
+          if (inventory.includes("Коготь")) choices.push("Коготь");
+          if (inventory.includes("Меч")) choices.push("Меч");
+
+          showDialogue("Выберите оружие:", choices, choice => {
+            currentWeapon = choice;
+            sword.visible = (choice === "Меч");
+            claw.visible = (choice === "Коготь");
+            fist.visible = (choice === "Кулак");
+          });
+        }
       }
+
       if (e.key === " " && isOnGround) {
         velocityY = jumpStrength;
         isOnGround = false;
@@ -183,6 +195,23 @@
 
   const matSword = new THREE.MeshStandardMaterial({ color: 0xcccccc });
   const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.2), matSword);
+
+
+  const fist = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+  fist.position.set(0.5, 0.8, 0);
+  fist.visible = true;
+  fist.castShadow = true;
+  player.add(fist);
+
+  const claw = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: 0xff00ff }));
+  claw.position.set(0.5, 1, 0);
+  claw.visible = false;
+  claw.castShadow = true;
+  player.add(claw);
+
+  let currentWeapon = "Кулак";
+
+
   sword.position.set(0.5, 1, 0);
   sword.visible = false;
   sword.castShadow = true;
@@ -403,7 +432,10 @@
   if (attackTimer <= 0) {
     isAttacking = false;
 
-    const damage = inventory.includes("Меч") ? 3 : (inventory.includes("Коготь") ? 1 : 0.5); // всегда 1 урон
+    let damage = 0.5;
+    if (currentWeapon === "Коготь") damage = 1;
+    if (currentWeapon === "Меч") damage = 3;
+
 
 
     // Враг у ворот
