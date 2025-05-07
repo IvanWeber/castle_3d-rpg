@@ -15,14 +15,25 @@
     #dialogue { margin-top: 10px; }
     .choice { padding: 4px 6px; }
     .selected { background: rgba(255,255,255,0.3); }
+    #redFlash {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255,0,0,0.3);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
   </style>
 </head>
 <body>
 <div id="ui">
   <div>Золото: <span id="gold">0</span></div>
   <div>Инвентарь: <span id="inv">пусто</span></div>
+  <div id="health">❤️❤️❤️❤️❤️</div>
   <div id="dialogue"></div>
 </div>
+<div id="redFlash"></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 <script>
   const scene = new THREE.Scene();
@@ -30,30 +41,29 @@
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap; // мягкие тени
-
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   document.body.appendChild(renderer.domElement);
 
-  // Свет
   const light = new THREE.DirectionalLight(0xffffff, 1.5);
-light.position.set(-10, 20, 10);
-light.castShadow = true;
-light.shadow.mapSize.set(2048, 2048);
-light.shadow.camera.near = 0.5;
-light.shadow.camera.far = 100;
-light.shadow.camera.left = -50;
-light.shadow.camera.right = 50;
-light.shadow.camera.top = 50;
-light.shadow.camera.bottom = -50;
-scene.add(light);
+  light.position.set(-10, 20, 10);
+  light.castShadow = true;
+  light.shadow.mapSize.set(2048, 2048);
+  light.shadow.camera.near = 0.5;
+  light.shadow.camera.far = 100;
+  light.shadow.camera.left = -50;
+  light.shadow.camera.right = 50;
+  light.shadow.camera.top = 50;
+  light.shadow.camera.bottom = -50;
+  scene.add(light);
 
-
-  const ambient = new THREE.AmbientLight(0xffffff, 0.6); // мягкий фоновый свет
+  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
   scene.add(ambient);
 
   const goldEl = document.getElementById("gold");
   const invEl = document.getElementById("inv");
   const dialogueEl = document.getElementById("dialogue");
+  const healthEl = document.getElementById("health");
+  const redFlash = document.getElementById("redFlash");
 
   let gold = 0;
   let inventory = [];
@@ -61,23 +71,17 @@ scene.add(light);
   let currentChoices = [];
   let currentCallback = null;
   let selectedIndex = 0;
-
-
+  let playerHealth = 5;
+  const maxHealth = 5;
 
   const loader = new THREE.TextureLoader();
-
-const skyTextureBase64 =``
-loader.load(skyTextureBase64, texture => {
-const skyGeo = new THREE.SphereGeometry(500, 32, 32);
-const skyMat = new THREE.MeshBasicMaterial({
-    map: texture,
-    side: THREE.BackSide,
-});
-const sky = new THREE.Mesh(skyGeo, skyMat);
-scene.add(sky);
-});
-
-
+  const skyTextureBase64 = `` 
+  loader.load(skyTextureBase64, texture => {
+    const skyGeo = new THREE.SphereGeometry(500, 32, 32);
+    const skyMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide });
+    const sky = new THREE.Mesh(skyGeo, skyMat);
+    scene.add(sky);
+  });
 
   const keys = {};
   document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
@@ -99,6 +103,23 @@ scene.add(sky);
   function updateUI() {
     goldEl.textContent = gold;
     invEl.textContent = inventory.join(", ") || "пусто";
+  }
+
+  function updateHealthUI() {
+    const hearts = "❤️".repeat(playerHealth) + "🖤".repeat(maxHealth - playerHealth);
+    healthEl.textContent = hearts;
+  }
+
+  function takeDamage() {
+    if (playerHealth > 0) {
+      playerHealth--;
+      updateHealthUI();
+      redFlash.style.opacity = 1;
+      setTimeout(() => redFlash.style.opacity = 0, 150);
+      if (playerHealth <= 0) {
+        showDialogue("Вы погибли! Перезагрузите страницу.", []);
+      }
+    }
   }
 
   function showDialogue(text, choices = [], callback = null) {
@@ -180,10 +201,7 @@ scene.add(sky);
   scene.add(platform);
 
   const obstacles = [floor, platform];
-
-  function addObstacle(mesh) {
-    obstacles.push(mesh);
-  }
+  function addObstacle(mesh) { obstacles.push(mesh); }
 
   function buildWall(x, y, z, w, h, d) {
     const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0x888888 }));
@@ -214,12 +232,9 @@ scene.add(sky);
 
   function aabb(boxA, boxB) {
     return (
-      boxA.max.x > boxB.min.x &&
-      boxA.min.x < boxB.max.x &&
-      boxA.max.y > boxB.min.y &&
-      boxA.min.y < boxB.max.y &&
-      boxA.max.z > boxB.min.z &&
-      boxA.min.z < boxB.max.z
+      boxA.max.x > boxB.min.x && boxA.min.x < boxB.max.x &&
+      boxA.max.y > boxB.min.y && boxA.min.y < boxB.max.y &&
+      boxA.max.z > boxB.min.z && boxA.min.z < boxB.max.z
     );
   }
 
@@ -360,6 +375,27 @@ scene.add(sky);
       }
     }
 
+    // Вражеские атаки
+    if (enemyAlive && player.position.distanceTo(enemy.position) < 2) {
+      enemy.userData.attackTimer = (enemy.userData.attackTimer || 0) + 0.016;
+      if (enemy.userData.attackTimer >= 1) {
+        enemy.userData.attackTimer = 0;
+        takeDamage();
+      }
+    } else {
+      enemy.userData.attackTimer = 0;
+    }
+
+    if (enemyInsideAlive && player.position.distanceTo(enemyInside.position) < 2) {
+      enemyInside.userData.attackTimer = (enemyInside.userData.attackTimer || 0) + 0.016;
+      if (enemyInside.userData.attackTimer >= 1) {
+        enemyInside.userData.attackTimer = 0;
+        takeDamage();
+      }
+    } else {
+      enemyInside.userData.attackTimer = 0;
+    }
+
     if (gateOpen && gate.position.y < 10) {
       gate.position.y += 0.1;
     }
@@ -370,10 +406,27 @@ scene.add(sky);
     camera.position.set(camX, camY, camZ);
     camera.lookAt(player.position);
 
+
+
+    function chase(enemyObj) {
+  const dist = player.position.distanceTo(enemyObj.position);
+  if (dist < 5 && dist > 1.5) {
+    const dir = player.position.clone().sub(enemyObj.position).normalize();
+    enemyObj.position.add(dir.multiplyScalar(0.05)); // скорость погони
+  }
+}
+
+// Погоня за игроком
+if (enemyAlive) chase(enemy);
+if (enemyInsideAlive) chase(enemyInside);
+
+
+
     renderer.render(scene, camera);
   }
 
   updateUI();
+  updateHealthUI();
   animate();
 </script>
 </body>
