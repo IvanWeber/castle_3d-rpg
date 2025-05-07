@@ -119,7 +119,18 @@
     rightLeg.castShadow = true;
     group.add(rightLeg);
 
-    return { group, rightArm };
+    leftArm.name = "leftArm";
+    rightArm.name = "rightArm";
+    leftLeg.name = "leftLeg";
+    rightLeg.name = "rightLeg";
+
+    return {
+      group,
+      rightArm,
+      leftArm,
+      rightLeg,
+      leftLeg
+    };
   }
 
   const keys = {};
@@ -127,6 +138,8 @@
   document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
   let yaw = 0, pitch = 0;
+  let walkCycle = 0;
+
   document.body.addEventListener("click", () => {
     if (document.pointerLockElement !== renderer.domElement)
       renderer.domElement.requestPointerLock();
@@ -153,6 +166,9 @@
   const playerParts = createCharacter({ material: matPlayer });
   const player = playerParts.group;
   const playerRightArm = playerParts.rightArm;
+  const playerLeftArm = playerParts.leftArm;
+  const playerRightLeg = playerParts.rightLeg;
+  const playerLeftLeg = playerParts.leftLeg;
   player.position.set(0, 0, 0);
   scene.add(player);
 
@@ -386,7 +402,7 @@
       }
     }
   }
-
+  
   function aabb(boxA, boxB) {
     return (
       boxA.max.x > boxB.min.x && boxA.min.x < boxB.max.x &&
@@ -539,6 +555,57 @@
     const camZ = player.position.z - Math.cos(yaw) * 5;
     camera.position.set(camX, camY, camZ);
     camera.lookAt(player.position);
+
+
+    // Анимация рук и ног
+    function animateWalk(character, speed) {
+      const sin = Math.sin(walkCycle * 6) * 0.5;
+      const cos = Math.cos(walkCycle * 6) * 0.5;
+
+      character.leftArm.rotation.x = cos;
+      character.rightArm.rotation.x = -cos;
+      character.leftLeg.rotation.x = -cos;
+      character.rightLeg.rotation.x = cos;
+    }
+
+    walkCycle += 0.016;
+
+    const isPlayerMoving = move.lengthSq() > 0.0001;
+
+    if (isPlayerMoving) {
+      const sin = Math.sin(walkCycle * 6) * 0.5;
+      const cos = Math.cos(walkCycle * 6) * 0.5;
+
+      playerLeftArm.rotation.x = cos;
+      playerRightArm.rotation.x = -cos;
+      playerLeftLeg.rotation.x = -cos;
+      playerRightLeg.rotation.x = cos;
+    } else {
+      playerLeftArm.rotation.x = 0;
+      playerRightArm.rotation.x = 0;
+      playerLeftLeg.rotation.x = 0;
+      playerRightLeg.rotation.x = 0;
+    }
+
+
+    [enemy, enemyInside].forEach(en => {
+      if (en.alive && player.position.distanceTo(en.position) < 5) {
+        if (!en.walkCycle) en.walkCycle = 0;
+        en.walkCycle += 0.016;
+        const sin = Math.sin(en.walkCycle * 6) * 0.5;
+        const cos = Math.cos(en.walkCycle * 6) * 0.5;
+
+        en.children.forEach(part => {
+          if (part.name === "leftArm") part.rotation.x = cos;
+          if (part.name === "rightArm") part.rotation.x = -cos;
+          if (part.name === "leftLeg") part.rotation.x = -cos;
+          if (part.name === "rightLeg") part.rotation.x = cos;
+        });
+      }
+    });
+
+
+
 
     renderer.render(scene, camera);
   }
