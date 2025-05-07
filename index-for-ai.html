@@ -112,12 +112,23 @@
   headGroup.add(cap);
   group.add(headGroup);
 
+  // Лицо: изогнутая по цилиндру текстура
   loader.load(faceTextureBase64, texture => {
-    const faceMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
-    const face = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), faceMat);
-    face.position.set(0, 2.5, 0.22); // чуть впереди головы
-    headGroup.add(face);
+    const radius = 0.22;
+    const height = 0.3;
+    const angle = THREE.MathUtils.degToRad(150); // угол дуги
+    const segments = 16;
+
+    const faceGeo = new THREE.CylinderGeometry(radius, radius, height, segments, 1, true, -angle / 2, angle);
+    const faceMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+    const faceMesh = new THREE.Mesh(faceGeo, faceMat);
+
+    faceMesh.rotation.y = 0; // Повернуто лицом ВПЕРЁД
+    faceMesh.position.set(0, 2.0, 0); // выше: 1.85 + 0.15
+    headGroup.add(faceMesh);
   });
+
+
 
 
   function createArm(side) {
@@ -900,8 +911,9 @@
 
       playerLeftArm.rotation.x = cos;
       playerRightArm.rotation.x = -cos;
-      playerParts.leftElbow.rotation.x = cos / 2;
-      playerParts.rightElbow.rotation.x = -cos / 2;
+      playerParts.leftElbow.rotation.x = -cos / 2;
+      playerParts.rightElbow.rotation.x = cos / 2;
+
 
       playerLeftLeg.rotation.x = -cos;
       playerRightLeg.rotation.x = cos;
