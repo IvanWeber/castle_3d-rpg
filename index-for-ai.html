@@ -38,6 +38,10 @@
 <script>
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+  const obstacles = [];
+  function addObstacle(mesh) { obstacles.push(mesh); }
+
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
@@ -75,7 +79,7 @@
   const maxHealth = 5;
 
   const loader = new THREE.TextureLoader();
-  const skyTextureBase64 = ``;
+  const skyTextureBase64 = ``
   loader.load(skyTextureBase64, texture => {
     const skyGeo = new THREE.SphereGeometry(500, 32, 32);
     const skyMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide });
@@ -274,11 +278,11 @@
 
   createNPC(-5, 0, 0xffff00, () => {
     if (!questGiven) {
-      showDialogue("Привет, убей врага у ворот!", ["Принять", "Позже"], choice => {
+      showDialogue("Мессир Таппенцаль! Выглядите как человек, который может сразить врага у ворот. Сделайте это — и я открою ворота. Не знаю, зачем вам нужно в замок... но раз уж вы здесь, кто я такой, чтобы мешать.", ["Принять", "Позже"], choice => {
         if (choice === "Принять") questGiven = true;
       });
     } else if (questComplete && !rewardGiven) {
-      showDialogue("Отлично! Открываю ворота!", ["Спасибо!"], () => {
+      showDialogue("Превосходно! Вот ваша награда. Я открываю ворота. Не знаю, зачем вам туда... Но там внутри, кстати, ходит розовый субъект... Не спрашивай. Просто не спрашивай.", ["Спасибо!"], () => {
         gold += 20;
         updateUI();
         gateOpen = true;
@@ -286,15 +290,16 @@
         rewardGiven = true;
       });
     } else if (questComplete && rewardGiven) {
-      showDialogue("Ты уже получил награду.");
+      showDialogue("Ворота открыты. Не знаю, зачем вам туда, но... путь свободен.");
     } else {
-      showDialogue("Враг ещё жив!");
+      showDialogue("Сразите врага у ворот. Не медлите, мессир.");
     }
   });
 
+
   createNPC(5, 0, 0xff8800, () => {
     if (!swordSold) {
-      showDialogue("Купи меч за 10 золота?", ["Купить", "Нет"], choice => {
+      showDialogue("Меч. Надёжный, тяжёлый, с историей. Цена — 10 золотых. Убедите себя, что он вам нужен.", ["Купить", "Нет"], choice => {
         if (choice === "Купить" && gold >= 10) {
           gold -= 10;
           inventory.push("Меч");
@@ -303,9 +308,76 @@
         }
       });
     } else {
-      showDialogue("У меня больше нет мечей.");
+      showDialogue("Я продал последний меч. Теперь вы один на один с судьбой.");
     }
   });
+
+
+  createNPC(-15, -5, 0xaa00aa, () => {
+    if (!inventory.includes("Свиток")) {
+      showDialogue("Ах, мессир! Я — профессор инструкционных наук. Мой шедевр — свиток с точнейшими указаниями, как попасть в замок... но его унёс весьма возмущённый синий тип, что поселился в домике к западу. Верните свиток!", ["Хорошо", "Нет времени"], choice => {});
+    } else {
+      showDialogue("Вы нашли свиток? Превосходно. Прочтите: 'Чтобы войти в замок, убедитесь, что вы находитесь внутри замка'. Гениально, не так ли?", ["...да."], () => {});
+    }
+  });
+
+  const blueEnemy = createEnemy(-25, -5, 0x0000ff);
+
+  const houseMat = new THREE.MeshStandardMaterial({ color: 0x775533 });
+  const house = new THREE.Group();
+
+  // Левая стена
+  const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 6), houseMat);
+  wallLeft.position.set(-2.75, 2, 0);
+  wallLeft.castShadow = true;
+  wallLeft.receiveShadow = true;
+  house.add(wallLeft);
+  addObstacle(wallLeft);
+
+  // Правая стена
+  const wallRight = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 6), houseMat);
+  wallRight.position.set(2.75, 2, 0);
+  wallRight.castShadow = true;
+  wallRight.receiveShadow = true;
+  house.add(wallRight);
+  addObstacle(wallRight);
+
+  // Задняя стена
+  const wallBack = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 0.5), houseMat);
+  wallBack.position.set(0, 2, -2.75);
+  wallBack.castShadow = true;
+  wallBack.receiveShadow = true;
+  house.add(wallBack);
+  addObstacle(wallBack);
+
+  // Крыша
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(6, 0.5, 6), houseMat);
+  roof.position.set(0, 4.25, 0);
+  roof.castShadow = true;
+  roof.receiveShadow = true;
+  house.add(roof);
+  addObstacle(roof);
+
+  // Установка всей группы
+  house.position.set(-25, 0, -5);
+  scene.add(house);
+
+
+
+  createNPC(0, 35, 0x000000, () => {
+    if (!inventory.includes("Философский ключ")) {
+      showDialogue("Я — Барон Зеркало. Замок полон тайн, но откроется только тем, кто принесёт философский ключ. Восточная башня хранит его, но Судья там суров.", ["Я найду его", "Мне уже достаточно загадок"], choice => {});
+    } else {
+      showDialogue("Удивительно. Вы нашли ключ, который не открывает ничего. Настоящая победа. Пользоваться им не нужно. Просто... владейте.", ["...спасибо?"], () => {});
+    }
+  });
+
+  const greenEnemy = createEnemy(15, 35, 0x00ff00);
+  buildWall(15, 3, 35, 6, 6, 6);
+
+
+
+
   function createHealthBar() {
     const bar = document.createElement("div");
     bar.style.position = "absolute";
@@ -411,8 +483,7 @@
     );
   }
 
-  const obstacles = [];
-  function addObstacle(mesh) { obstacles.push(mesh); }
+
 
   const matFloor = new THREE.MeshStandardMaterial({ color: 0x228822 });
   const floor = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), matFloor);
@@ -454,6 +525,25 @@
   }
 
   buildCastle();
+
+  function buildMountains() {
+    const mountainMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
+    for (let x = -50; x <= 50; x += 4) {
+      const height = 6 + Math.random() * 6;
+      const mountain = new THREE.Mesh(
+        new THREE.BoxGeometry(4, height, 4),
+        mountainMat
+      );
+      mountain.position.set(x, height / 2, -50);
+      mountain.castShadow = true;
+      mountain.receiveShadow = true;
+      scene.add(mountain);
+      addObstacle(mountain);
+    }
+  }
+
+  buildMountains();
+
 
   function getPlayerBox(pos) {
     return new THREE.Box3().setFromCenterAndSize(pos.clone().add(new THREE.Vector3(0, 1, 0)), new THREE.Vector3(1, 2, 1));
@@ -530,6 +620,35 @@
       }
     }
 
+
+        // Проверка победы над новыми врагами
+        if (isAttacking) {
+      if (blueEnemy.alive && player.position.distanceTo(blueEnemy.position) < 2) {
+        blueEnemy.health -= 1;
+        if (blueEnemy.health <= 0) {
+          blueEnemy.alive = false;
+          scene.remove(blueEnemy);
+          blueEnemy.healthBar.container.remove();
+          inventory.push("Свиток");
+          updateUI();
+        }
+      }
+
+      if (greenEnemy.alive && player.position.distanceTo(greenEnemy.position) < 2) {
+        greenEnemy.health -= 1;
+        if (greenEnemy.health <= 0) {
+          greenEnemy.alive = false;
+          scene.remove(greenEnemy);
+          greenEnemy.healthBar.container.remove();
+          inventory.push("Философский ключ");
+          updateUI();
+        }
+      }
+    }
+
+
+
+
     [enemy, enemyInside].forEach(en => {
       if (en.alive) {
         chase(en);
@@ -550,9 +669,9 @@
       gate.position.y += 0.1;
     }
 
-    const camX = player.position.x - Math.sin(yaw) * 5;
+    const camX = player.position.x - Math.sin(yaw) * 7;
     const camY = player.position.y + 2 + Math.sin(pitch) * 5;
-    const camZ = player.position.z - Math.cos(yaw) * 5;
+    const camZ = player.position.z - Math.cos(yaw) * 7;
     camera.position.set(camX, camY, camZ);
     camera.lookAt(player.position);
 
@@ -612,6 +731,48 @@
 
   updateUI();
   updateHealthUI();
+
+
+  // --- Экран предыстории ---
+  const introOverlay = document.createElement("div");
+  introOverlay.style.position = "fixed";
+  introOverlay.style.top = "0";
+  introOverlay.style.left = "0";
+  introOverlay.style.width = "100%";
+  introOverlay.style.height = "100%";
+  introOverlay.style.background = "black";
+  introOverlay.style.color = "white";
+  introOverlay.style.fontFamily = "serif";
+  introOverlay.style.fontSize = "18px";
+  introOverlay.style.padding = "40px";
+  introOverlay.style.boxSizing = "border-box";
+  introOverlay.style.display = "flex";
+  introOverlay.style.justifyContent = "center";
+  introOverlay.style.alignItems = "center";
+  introOverlay.style.textAlign = "left";
+  introOverlay.style.zIndex = "9999";
+  introOverlay.innerHTML = `
+    <div>
+      <h2 style="margin-top:0">Ein seltsames Beginnen</h2>
+      <p>Вы — Ганс Таппенцаль, человек, который по приказу самого себя прибыл в этот край. Что именно вы должны тут сделать — уже никто не помнит, но все уверены, что это важно.</p>
+      <p>Перед вами — ворота замка, а у ворот — неприятного вида противник. Где-то рядом ходит жёлтый человек, явно стремящийся навязать квест, и оранжевый торговец, предлагающий сомнительное оружие.</p>
+      <p>И, разумеется, замок. Что в нём? Почему вас туда тянет? Эти вопросы не имеют смысла. Вы просто знаете, что должны туда попасть.</p>
+      <p style="margin-top:20px;"><em>Нажмите Enter, чтобы начать</em></p>
+    </div>
+  `;
+  document.body.appendChild(introOverlay);
+
+  document.addEventListener("keydown", function skipIntro(e) {
+    if (e.key === "Enter") {
+      introOverlay.remove();
+      document.removeEventListener("keydown", skipIntro);
+    }
+  });
+
+
+
+
+
   animate();
 </script>
 </body>
