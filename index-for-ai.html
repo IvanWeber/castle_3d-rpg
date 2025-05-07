@@ -187,7 +187,6 @@
   sword.visible = false;
   sword.castShadow = true;
   player.add(sword);
-
   const matFloor = new THREE.MeshStandardMaterial({ color: 0x228822 });
   const floor = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), matFloor);
   floor.position.y = -0.5;
@@ -291,17 +290,44 @@
     });
   });
 
+  function createHealthBar() {
+    const bar = document.createElement("div");
+    bar.style.position = "absolute";
+    bar.style.width = "50px";
+    bar.style.height = "6px";
+    bar.style.background = "rgba(255,0,0,0.5)";
+    bar.style.border = "1px solid red";
+    bar.style.borderRadius = "3px";
+    bar.style.overflow = "hidden";
+    bar.style.display = "none";
+    const fill = document.createElement("div");
+    fill.style.height = "100%";
+    fill.style.width = "100%";
+    fill.style.background = "lime";
+    bar.appendChild(fill);
+    document.body.appendChild(bar);
+    return { container: bar, fill: fill };
+  }
+
   const enemy = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
   enemy.position.set(0, 1, -10);
   enemy.castShadow = true;
   scene.add(enemy);
   let enemyAlive = true;
+  enemy.health = 3;
+  enemy.maxHealth = 3;
+  enemy.healthBar = createHealthBar();
+  enemy.alreadyChasing = false;
 
   const enemyInside = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshStandardMaterial({ color: 0xff00ff }));
   enemyInside.position.set(0, 1, 25);
   enemyInside.castShadow = true;
   scene.add(enemyInside);
   let enemyInsideAlive = true;
+  enemyInside.health = 3;
+  enemyInside.maxHealth = 3;
+  enemyInside.healthBar = createHealthBar();
+  enemyInside.alreadyChasing = false;
 
   let velocityY = 0;
   let isOnGround = false;
@@ -319,6 +345,24 @@
       }
     }
   });
+
+  function updateHealthBar(enemyObj) {
+    if (!enemyObj.healthBar) return;
+    const vector = enemyObj.position.clone();
+    vector.y += 2.5;
+    vector.project(camera);
+    const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+    enemyObj.healthBar.container.style.left = `${x - 25}px`;
+    enemyObj.healthBar.container.style.top = `${y - 30}px`;
+    const ratio = enemyObj.health / enemyObj.maxHealth;
+    enemyObj.healthBar.fill.style.width = `${Math.max(0, ratio * 100)}%`;
+    if (player.position.distanceTo(enemyObj.position) < 5) {
+      enemyObj.healthBar.container.style.display = "block";
+    } else {
+      enemyObj.healthBar.container.style.display = "none";
+    }
+  }
 
   function animate() {
     requestAnimationFrame(animate);
@@ -355,27 +399,64 @@
     player.rotation.y = yaw;
 
     if (isAttacking) {
-      attackTimer -= 0.016;
-      if (attackTimer <= 0) {
-        isAttacking = false;
-        if (enemyAlive && player.position.distanceTo(enemy.position) < 2) {
-          scene.remove(enemy);
-          enemyAlive = false;
-          inventory.push("Коготь");
-          gold += 10;
-          updateUI();
-          if (questGiven) questComplete = true;
-        }
-        if (enemyInsideAlive && player.position.distanceTo(enemyInside.position) < 2) {
-          scene.remove(enemyInside);
-          enemyInsideAlive = false;
-          gold += 50;
-          updateUI();
+  attackTimer -= 0.016;
+  if (attackTimer <= 0) {
+    isAttacking = false;
+
+    const damage = inventory.includes("Меч") ? 3 : (inventory.includes("Коготь") ? 1 : 0.5); // всегда 1 урон
+
+
+    // Враг у ворот
+    if (enemyAlive && player.position.distanceTo(enemy.position) < 2) {
+      enemy.health -= damage;
+      if (enemy.health <= 0) {
+        enemyAlive = false;
+        scene.remove(enemy);
+        enemy.healthBar.container.remove();
+        inventory.push("Коготь");
+        gold += 10;
+        updateUI();
+        if (questGiven) questComplete = true;
+      }
+    }
+
+    // Враг внутри замка
+    if (enemyInsideAlive && player.position.distanceTo(enemyInside.position) < 2) {
+      enemyInside.health -= damage;
+      if (enemyInside.health <= 0) {
+        enemyInsideAlive = false;
+        scene.remove(enemyInside);
+        enemyInside.healthBar.container.remove();
+        gold += 50;
+        updateUI();
+      }
+    }
+  }
+}
+
+
+
+    function chase(enemyObj) {
+      const dist = player.position.distanceTo(enemyObj.position);
+      if (dist < 5 && dist > 1.5) {
+        const dir = player.position.clone().sub(enemyObj.position).normalize();
+        enemyObj.position.add(dir.multiplyScalar(0.05));
+        if (!enemyObj.alreadyChasing) {
+          enemyObj.alreadyChasing = true;
+          enemyObj.healthBar.container.style.display = "block";
         }
       }
     }
 
-    // Вражеские атаки
+    if (enemyAlive) {
+      chase(enemy);
+      updateHealthBar(enemy);
+    }
+    if (enemyInsideAlive) {
+      chase(enemyInside);
+      updateHealthBar(enemyInside);
+    }
+
     if (enemyAlive && player.position.distanceTo(enemy.position) < 2) {
       enemy.userData.attackTimer = (enemy.userData.attackTimer || 0) + 0.016;
       if (enemy.userData.attackTimer >= 1) {
@@ -405,22 +486,6 @@
     const camZ = player.position.z - Math.cos(yaw) * 5;
     camera.position.set(camX, camY, camZ);
     camera.lookAt(player.position);
-
-
-
-    function chase(enemyObj) {
-  const dist = player.position.distanceTo(enemyObj.position);
-  if (dist < 5 && dist > 1.5) {
-    const dir = player.position.clone().sub(enemyObj.position).normalize();
-    enemyObj.position.add(dir.multiplyScalar(0.05)); // скорость погони
-  }
-}
-
-// Погоня за игроком
-if (enemyAlive) chase(enemy);
-if (enemyInsideAlive) chase(enemyInside);
-
-
 
     renderer.render(scene, camera);
   }
