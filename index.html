@@ -98,10 +98,23 @@
   group.add(body);
 
   // Голова с 6 гранями (шестигранный цилиндр)
-  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.6, 6), mat);
-  head.position.y = 2.4;
-  head.castShadow = true;
-  group.add(head);
+  // Голова: цилиндр с полусферой сверху
+  const headGroup = new THREE.Group();
+
+  // Нижняя часть — шестигранный цилиндр (основа головы)
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.4, 6), mat);
+  base.position.y = 2.3;
+  base.castShadow = true;
+  headGroup.add(base);
+
+  // Верхняя часть — немного меньшая полусфера (крышка)
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.20, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat);
+  cap.position.y = 2.48; // немного ниже, чтобы не висела
+  cap.castShadow = true;
+  headGroup.add(cap);
+
+  group.add(headGroup);
+
 
   function createArm(side) {
     const shoulder = new THREE.Group();
@@ -891,13 +904,14 @@
     } else {
       playerLeftArm.rotation.x = 0;
       playerRightArm.rotation.x = 0;
-      playerParts.leftElbow.rotation.x = 0;
-      playerParts.rightElbow.rotation.x = 0;
+      playerParts.leftElbow.rotation.x = -Math.PI / 4; // ← полусогнутые
+      playerParts.rightElbow.rotation.x = -Math.PI / 4;
       playerLeftLeg.rotation.x = 0;
       playerRightLeg.rotation.x = 0;
       playerParts.leftKnee.rotation.x = 0;
       playerParts.rightKnee.rotation.x = 0;
     }
+
 
 
     // Анимация удара — правая рука
