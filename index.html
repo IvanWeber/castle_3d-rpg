@@ -336,6 +336,7 @@
     if (!isAttacking && !isTalking) {
       isAttacking = true;
       attackTimer = 0.2;
+      attackAnimTimer = 0.2;
     }
   }
 
@@ -535,11 +536,14 @@
 
   let attackTimer = 0;
 
+  let attackAnimTimer = 0;
+
   document.addEventListener("mousedown", e => {
     if (!isTalking && e.button === 0) {
       if (!isAttacking) {
         isAttacking = true;
         attackTimer = 0.2;
+        attackAnimTimer = 0.2; // ← ДОБАВЛЕНО
       }
     }
   });
@@ -832,6 +836,13 @@
       playerRightArm.rotation.x = 0;
       playerLeftLeg.rotation.x = 0;
       playerRightLeg.rotation.x = 0;
+    }
+
+    // Анимация удара — правая рука
+    if (attackAnimTimer > 0) {
+      attackAnimTimer -= 0.016;
+      const t = 1 - attackAnimTimer / 0.2;
+      playerRightArm.rotation.x = -Math.sin(t * Math.PI) * 1.2;
     }
 
 
