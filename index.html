@@ -29,7 +29,17 @@
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
   document.body.appendChild(renderer.domElement);
+
+  // Свет
+  const light = new THREE.DirectionalLight(0xffffff, 2);
+  light.position.set(-10, 20, 10);
+  light.castShadow = true;
+  scene.add(light);
+
+  const ambient = new THREE.AmbientLight(0xffffff, 0.6); // мягкий фоновый свет
+  scene.add(ambient);
 
   const goldEl = document.getElementById("gold");
   const invEl = document.getElementById("inv");
@@ -41,6 +51,7 @@
   let currentChoices = [];
   let currentCallback = null;
   let selectedIndex = 0;
+
 
 
   const loader = new THREE.TextureLoader();
@@ -55,6 +66,7 @@ const skyMat = new THREE.MeshBasicMaterial({
 const sky = new THREE.Mesh(skyGeo, skyMat);
 scene.add(sky);
 });
+
 
 
   const keys = {};
@@ -132,21 +144,29 @@ scene.add(sky);
     }
   });
 
-  const player = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0x4444ff }));
+  const matPlayer = new THREE.MeshStandardMaterial({ color: 0x4444ff });
+  const player = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), matPlayer);
   player.position.set(0, 1, 0);
+  player.castShadow = true;
   scene.add(player);
 
-  const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.2), new THREE.MeshBasicMaterial({ color: 0xcccccc }));
+  const matSword = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+  const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.2), matSword);
   sword.position.set(0.5, 1, 0);
   sword.visible = false;
+  sword.castShadow = true;
   player.add(sword);
 
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), new THREE.MeshBasicMaterial({ color: 0x228822 }));
+  const matFloor = new THREE.MeshStandardMaterial({ color: 0x228822 });
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), matFloor);
   floor.position.y = -0.5;
+  floor.receiveShadow = true;
   scene.add(floor);
 
-  const platform = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 6), new THREE.MeshBasicMaterial({ color: 0x8888ff }));
+  const matPlatform = new THREE.MeshStandardMaterial({ color: 0x8888ff });
+  const platform = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 6), matPlatform);
   platform.position.set(0, 2, 5);
+  platform.receiveShadow = true;
   scene.add(platform);
 
   const obstacles = [floor, platform];
@@ -156,8 +176,10 @@ scene.add(sky);
   }
 
   function buildWall(x, y, z, w, h, d) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: 0x888888 }));
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0x888888 }));
     wall.position.set(x, y, z);
+    wall.castShadow = true;
+    wall.receiveShadow = true;
     scene.add(wall);
     addObstacle(wall);
   }
@@ -170,8 +192,10 @@ scene.add(sky);
     buildWall(10, 3, 20, 1, 6, 20);
     buildWall(-6, 3, 10, 10, 6, 1);
     buildWall(6, 3, 10, 10, 6, 1);
-    gate = new THREE.Mesh(new THREE.BoxGeometry(2, 5, 1), new THREE.MeshBasicMaterial({ color: 0x552200 }));
+    gate = new THREE.Mesh(new THREE.BoxGeometry(2, 5, 1), new THREE.MeshStandardMaterial({ color: 0x552200 }));
     gate.position.set(0, 2.5, 10);
+    gate.castShadow = true;
+    gate.receiveShadow = true;
     scene.add(gate);
     addObstacle(gate);
   }
@@ -207,9 +231,10 @@ scene.add(sky);
   let questComplete = false;
 
   function createNPC(x, z, color, talkFn) {
-    const npc = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color }));
+    const npc = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshStandardMaterial({ color }));
     npc.position.set(x, 1, z);
     npc.userData.talk = talkFn;
+    npc.castShadow = true;
     scene.add(npc);
     npcs.push(npc);
   }
@@ -241,13 +266,15 @@ scene.add(sky);
     });
   });
 
-  const enemy = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+  const enemy = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
   enemy.position.set(0, 1, -10);
+  enemy.castShadow = true;
   scene.add(enemy);
   let enemyAlive = true;
 
-  const enemyInside = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+  const enemyInside = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshStandardMaterial({ color: 0xff00ff }));
   enemyInside.position.set(0, 1, 25);
+  enemyInside.castShadow = true;
   scene.add(enemyInside);
   let enemyInsideAlive = true;
 
