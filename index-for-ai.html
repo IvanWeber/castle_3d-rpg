@@ -110,13 +110,13 @@
 
   // Голова: цилиндр + уменьшенная полусфера
   const headGroup = new THREE.Group();
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.20, 0.35, 6), mat);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.30, 6), mat);
   base.position.y = 2.0;
   base.castShadow = true;
   headGroup.add(base);
 
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat);
-  cap.position.y = 2.16;
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat);
+  cap.position.y = 2.10;
   cap.castShadow = true;
   headGroup.add(cap);
   group.add(headGroup);
@@ -133,7 +133,7 @@
     const faceMesh = new THREE.Mesh(faceGeo, faceMat);
 
     faceMesh.rotation.y = 0; // Повернуто лицом ВПЕРЁД
-    faceMesh.position.set(0, 2.0, 0); // выше: 1.85 + 0.15
+    faceMesh.position.set(0, 1.95, 0); // выше: 1.85 + 0.15
     headGroup.add(faceMesh);
   });
 
@@ -1034,7 +1034,7 @@
       character.rightLeg.rotation.x = cos;
     }
 
-    walkCycle += 0.016;
+    walkCycle += move.length() * 0.2;
 
     const isPlayerMoving = move.lengthSq() > 0.0001;
 
