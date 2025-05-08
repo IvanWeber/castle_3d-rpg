@@ -1016,11 +1016,25 @@
       gate.position.y += 0.1;
     }
 
-    const camX = player.position.x - Math.sin(yaw) * 7;
-    const camY = player.position.y + 2 + Math.sin(pitch) * 5;
-    const camZ = player.position.z - Math.cos(yaw) * 7;
-    camera.position.set(camX, camY, camZ);
-    camera.lookAt(player.position);
+    // Желаемая позиция камеры
+    const desiredCamPos = new THREE.Vector3(
+      player.position.x - Math.sin(yaw) * 7,
+      player.position.y + 2 + Math.sin(pitch) * 5,
+      player.position.z - Math.cos(yaw) * 7
+    );
+
+    // Направление от игрока к камере
+    const direction = new THREE.Vector3().subVectors(desiredCamPos, player.position).normalize();
+    const raycaster = new THREE.Raycaster(player.position.clone().add(new THREE.Vector3(0, 1.5, 0)), direction);
+    const intersects = raycaster.intersectObjects(obstacles, true);
+
+    if (intersects.length > 0 && intersects[0].distance < 7) {
+      // Если есть препятствие ближе 7 единиц — отодвигаем до него
+      desiredCamPos.copy(raycaster.ray.origin).add(direction.multiplyScalar(intersects[0].distance - 0.1));
+    }
+
+    camera.position.copy(desiredCamPos);
+    camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 1.5, 0)));
 
 
     // Анимация рук и ног
