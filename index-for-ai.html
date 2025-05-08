@@ -592,53 +592,83 @@
 
   function buildOrangeHouse() {
     const houseMat = new THREE.MeshStandardMaterial({ color: 0x996633 });
-
     const house = new THREE.Group();
 
-    const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 6), houseMat);
-    wallLeft.position.set(-2.75, 2, 0);
+    const width = 10;
+    const depth = 10;
+
+    // Стены
+    const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, depth), houseMat);
+    wallLeft.position.set(-width / 2 + 0.25, 2, 0);
     wallLeft.castShadow = true;
     house.add(wallLeft); addObstacle(wallLeft);
 
-    const wallRight = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 6), houseMat);
-    wallRight.position.set(2.75, 2, 0);
+    const wallRight = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, depth), houseMat);
+    wallRight.position.set(width / 2 - 0.25, 2, 0);
     wallRight.castShadow = true;
     house.add(wallRight); addObstacle(wallRight);
 
-    const wallBack = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 0.5), houseMat);
-    wallBack.position.set(0, 2, -2.75);
+    const wallBack = new THREE.Mesh(new THREE.BoxGeometry(width, 4, 0.5), houseMat);
+    wallBack.position.set(0, 2, -depth / 2 + 0.25);
     wallBack.castShadow = true;
     house.add(wallBack); addObstacle(wallBack);
 
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(6, 0.5, 6), houseMat);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(width, 0.5, depth), houseMat);
     roof.position.set(0, 4.25, 0);
     roof.castShadow = true;
     house.add(roof); addObstacle(roof);
 
-    // Дверь
-    // Дверной косяк (левая и правая стена)
+    // Дверной проём
     const doorWallLeft = new THREE.Mesh(new THREE.BoxGeometry(1, 3, 0.2), houseMat);
-    doorWallLeft.position.set(-1.5, 1.5, 3.1);
+    doorWallLeft.position.set(-2, 1.5, depth / 2 + 0.1);
     house.add(doorWallLeft); addObstacle(doorWallLeft);
 
     const doorWallRight = new THREE.Mesh(new THREE.BoxGeometry(1, 3, 0.2), houseMat);
-    doorWallRight.position.set(1.5, 1.5, 3.1);
+    doorWallRight.position.set(2, 1.5, depth / 2 + 0.1);
     house.add(doorWallRight); addObstacle(doorWallRight);
 
+    // Верх над дверью
+    const doorTop = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 0.2), houseMat);
+    doorTop.position.set(0, 3.75, depth / 2 + 0.1);
+    house.add(doorTop); addObstacle(doorTop);
+
+    // Левая часть фронтальной стены
+    const frontLeft = new THREE.Mesh(new THREE.BoxGeometry(3.5, 6, 0.2), houseMat);
+    frontLeft.position.set(-3.25, 1.5, depth / 2 + 0.1);
+    house.add(frontLeft); addObstacle(frontLeft);
+
+    // Правая часть фронтальной стены
+    const frontRight = new THREE.Mesh(new THREE.BoxGeometry(3.5, 6, 0.2), houseMat);
+    frontRight.position.set(3.25, 1.5, depth / 2 + 0.1);
+    house.add(frontRight); addObstacle(frontRight);
+
+
     orangeHouseDoorPivot = new THREE.Group();
-    orangeHouseDoorPivot.position.set(-1, 0, 3.1); // петли слева
-    orangeHouseDoor = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 0.2), new THREE.MeshStandardMaterial({ color: 0x552200 }));
-    orangeHouseDoor.position.set(1, 1.5, 0); // смещение от оси
+    orangeHouseDoorPivot.position.set(-1.5, 0, depth / 2 + 0.1);
+    orangeHouseDoor = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 0.2), new THREE.MeshStandardMaterial({ color: 0x552200 }));
+    orangeHouseDoor.position.set(1.5, 1.5, 0);
     orangeHouseDoor.castShadow = true;
     orangeHouseDoorPivot.add(orangeHouseDoor);
     house.add(orangeHouseDoorPivot);
-    addObstacle(orangeHouseDoor); // остаётся препятствием всегда
+    addObstacle(orangeHouseDoor);
 
-
+    // Прилавок
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 0.5), new THREE.MeshStandardMaterial({ color: 0x443322 }));
+    counter.position.set(0, 0.5, 1);
+    counter.castShadow = true;
+    house.add(counter); addObstacle(counter);
 
     house.position.set(10, 0, -15);
     scene.add(house);
+
+    // Перемещаем оранжевого NPC внутрь дома, за стойку
+    const npc = npcs.find(n => n.group.position.x === 5 && n.group.position.z === 0);
+    if (npc) {
+      npc.group.position.set(10, 0, -14); // чуть позади стойки
+      npc.group.rotation.y = Math.PI; // лицом к двери
+    }
   }
+
 
   buildOrangeHouse();
 
@@ -1011,8 +1041,9 @@
 
       playerLeftArm.rotation.x = cos;
       playerRightArm.rotation.x = -cos;
-      playerParts.leftElbow.rotation.x = -cos / 2;
-      playerParts.rightElbow.rotation.x = cos / 2;
+      playerParts.leftElbow.rotation.x = -Math.PI / 4 + cos / 4;
+      playerParts.rightElbow.rotation.x = -Math.PI / 4 - cos / 4;
+
 
 
       playerLeftLeg.rotation.x = -cos;
