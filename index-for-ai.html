@@ -201,6 +201,8 @@
 
   return {
     group,
+    body,
+    headGroup,
     rightArm: rightArm.shoulder,
     leftArm: leftArm.shoulder,
     rightLeg: rightLeg.hip,
@@ -212,6 +214,7 @@
     rightWrist: rightArm.wrist,
     leftWrist: leftArm.wrist
   };
+
 }
 
 
@@ -1039,6 +1042,19 @@
       const sin = Math.sin(walkCycle * 6) * 0.5;
       const cos = Math.cos(walkCycle * 6) * 0.5;
 
+      const bounce = Math.abs(Math.cos(walkCycle * 6)) * 0.05;
+      playerParts.body.position.y = 1.4 - bounce;
+      playerParts.headGroup.position.y = 0 - bounce;
+
+      playerParts.leftArm.position.y = 1.8 - bounce;
+      playerParts.rightArm.position.y = 1.8 - bounce;
+      playerParts.leftElbow.position.y = -0.4 - bounce;
+      playerParts.rightElbow.position.y = -0.4 - bounce;
+      playerParts.leftWrist.position.y = -0.4 - bounce;
+      playerParts.rightWrist.position.y = -0.4 - bounce;
+
+
+
       playerLeftArm.rotation.x = cos;
       playerRightArm.rotation.x = -cos;
       playerParts.leftElbow.rotation.x = -Math.PI / 4 + cos / 4;
@@ -1051,6 +1067,16 @@
       playerParts.leftKnee.rotation.x = -cos / 2;
       playerParts.rightKnee.rotation.x = cos / 2;
     } else {
+      playerParts.body.position.y = 1.4;
+
+      playerParts.leftArm.position.y = 1.8;
+      playerParts.rightArm.position.y = 1.8;
+      playerParts.leftElbow.position.y = -0.4;
+      playerParts.rightElbow.position.y = -0.4;
+      playerParts.leftWrist.position.y = -0.4;
+      playerParts.rightWrist.position.y = -0.4;
+
+      playerParts.headGroup.position.y = 0;
       playerLeftArm.rotation.x = 0;
       playerRightArm.rotation.x = 0;
       playerParts.leftElbow.rotation.x = -Math.PI / 4; // ← полусогнутые
