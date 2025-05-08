@@ -334,7 +334,7 @@
         const npc = npcs.find(n => n.group.position.distanceTo(player.position) < 2.5);
         if (npc) {
           npc.talk();
-        } else if (player.position.distanceTo(orangeHouseDoor.getWorldPosition(new THREE.Vector3())) < 2.5) {
+        } else if (player.position.distanceTo(orangeHouseDoor.getWorldPosition(new THREE.Vector3())) < 4) {
           if (doorState === "closed") doorState = "opening";
           else if (doorState === "open") doorState = "closing";
         }
@@ -396,7 +396,7 @@
     const npc = npcs.find(n => n.group.position.distanceTo(player.position) < 2.5);
     if (npc) {
       npc.talk();
-    } else if (player.position.distanceTo(orangeHouseDoor.getWorldPosition(new THREE.Vector3())) < 2.5) {
+    } else if (player.position.distanceTo(orangeHouseDoor.getWorldPosition(new THREE.Vector3())) < 4) {
       if (doorState === "closed") doorState = "opening";
       else if (doorState === "open") doorState = "closing";
     }
@@ -667,7 +667,7 @@
     // Перемещаем оранжевого NPC внутрь дома, за стойку
     const npc = npcs.find(n => n.group.position.x === 5 && n.group.position.z === 0);
     if (npc) {
-      npc.group.position.set(10, 0, -14); // чуть позади стойки
+      npc.group.position.set(10, 0, -15); // чуть позади стойки
       npc.group.rotation.y = Math.PI; // лицом к двери
     }
   }
@@ -877,6 +877,32 @@
   }
 
   buildMountains();
+
+
+  function createTree(x, z) {
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+    const leavesMat = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 2, 8), trunkMat);
+    trunk.position.set(x, 1, z);
+    trunk.castShadow = true;
+    trunk.receiveShadow = true;
+    scene.add(trunk);
+    addObstacle(trunk);
+
+    const crown = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 12), leavesMat);
+    crown.position.set(x, 3, z);
+    crown.castShadow = true;
+    crown.receiveShadow = true;
+    scene.add(crown);
+  }
+
+  // Три дерева на разных позициях
+  createTree(8, -5);
+  createTree(-5, 8);
+  createTree(15, 18);
+
+
 
 
   function getPlayerBox(pos) {
