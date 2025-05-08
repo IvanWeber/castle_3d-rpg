@@ -334,7 +334,7 @@
         const npc = npcs.find(n => n.group.position.distanceTo(player.position) < 2.5);
         if (npc) {
           npc.talk();
-        } else if (player.position.distanceTo(orangeHouseDoor.getWorldPosition(new THREE.Vector3())) < 2.5) {
+        } else if (player.position.distanceTo(orangeHouseDoor.getWorldPosition(new THREE.Vector3())) < 4) {
           if (doorState === "closed") doorState = "opening";
           else if (doorState === "open") doorState = "closing";
         }
@@ -396,7 +396,7 @@
     const npc = npcs.find(n => n.group.position.distanceTo(player.position) < 2.5);
     if (npc) {
       npc.talk();
-    } else if (player.position.distanceTo(orangeHouseDoor.getWorldPosition(new THREE.Vector3())) < 2.5) {
+    } else if (player.position.distanceTo(orangeHouseDoor.getWorldPosition(new THREE.Vector3())) < 4) {
       if (doorState === "closed") doorState = "opening";
       else if (doorState === "open") doorState = "closing";
     }
@@ -667,7 +667,7 @@
     // Перемещаем оранжевого NPC внутрь дома, за стойку
     const npc = npcs.find(n => n.group.position.x === 5 && n.group.position.z === 0);
     if (npc) {
-      npc.group.position.set(10, 0, -14); // чуть позади стойки
+      npc.group.position.set(10, 0, -15); // чуть позади стойки
       npc.group.rotation.y = Math.PI; // лицом к двери
     }
   }
