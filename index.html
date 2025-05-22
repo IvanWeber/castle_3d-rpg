@@ -71,6 +71,8 @@
 
   const allDoors = [];
 
+  let removableMountain = null;
+
   let gold = 0;
   let inventory = [];
   let isTalking = false;
@@ -362,7 +364,13 @@
           if (doorEntry) {
             if (doorEntry.state === "closed") doorEntry.state = "opening";
             else if (doorEntry.state === "open") doorEntry.state = "closing";
+          }else if (dragonQuestGiven && !mountainPassOpened && removableMountain && player.position.distanceTo(removableMountain.position) < 6) {
+            scene.remove(removableMountain); // убрать гору из сцены
+            const index = obstacles.indexOf(removableMountain);
+            if (index !== -1) obstacles.splice(index, 1); // убрать из препятствий
+            mountainPassOpened = true;
           }
+
         }
 
       }
@@ -520,6 +528,11 @@
   let rewardGiven = false;
   let swordSold = false;
 
+  let dragonQuestGiven = false;
+  let dragonDefeated = false;
+  let mountainPassOpened = false;
+
+
   function createNPC(x, z, color, talkFn) {
     const parts = createCharacter({ color, x, z });
     const npc = parts.group;
@@ -613,6 +626,29 @@
 
   // Повернуть стражника лицом к игроку (180 градусов)
   guardNPC.group.rotation.y = Math.PI;
+
+
+  createNPC(0, 25, 0x55ccff, () => {
+    if (!dragonQuestGiven) {
+      showDialogue("Ты дошёл до замка? Молодец. Но испытание ещё впереди: в горах прячется дракон. Победи его, и ты станешь кем-то.", ["Принять", "Позже"], choice => {
+        if (choice === "Принять") {
+          dragonQuestGiven = true;
+          updateUI();
+        }
+      });
+    } else if (!dragonDefeated) {
+      showDialogue("Дракон всё ещё там. Но ты можешь отдохнуть в замке, если устал.", ["Отдохнуть"], choice => {
+        if (choice === "Отдохнуть") {
+          playerHealth = maxHealth;
+          updateHealthUI();
+          showDialogue("Ты отдохнул. Жизни восстановлены.");
+        }
+      });
+    } else {
+      showDialogue("Ты победил дракона. Это нечто. Наслаждайся победой.");
+    }
+  });
+
 
 
 
@@ -926,13 +962,56 @@
 
   function buildMountains() {
     const mountainMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
+
+    // Центральная (удаляемая) красная гора
+    const height = 10;
+    removableMountain = new THREE.Mesh(
+      new THREE.BoxGeometry(4, height, 4),
+      mountainMat.clone()
+    );
+    removableMountain.position.set(0, height / 2, -50);
+    removableMountain.castShadow = true;
+    removableMountain.receiveShadow = true;
+    removableMountain.material.color.set(0xff0000);
+    scene.add(removableMountain);
+    addObstacle(removableMountain);
+
+    // Левый и правый примыкающие горы
+    const leftMountain = new THREE.Mesh(new THREE.BoxGeometry(4, 10, 4), mountainMat);
+    leftMountain.position.set(-4, 5, -50);
+    leftMountain.castShadow = true;
+    leftMountain.receiveShadow = true;
+    scene.add(leftMountain);
+    addObstacle(leftMountain);
+
+    const rightMountain = new THREE.Mesh(new THREE.BoxGeometry(4, 10, 4), mountainMat);
+    rightMountain.position.set(4, 5, -50);
+    rightMountain.castShadow = true;
+    rightMountain.receiveShadow = true;
+    scene.add(rightMountain);
+    addObstacle(rightMountain);
+
+    // Дополнительные половинки в зазоры между крайними и основной грядой
+    const leftHalf = new THREE.Mesh(new THREE.BoxGeometry(4, 10, 4), mountainMat);
+    leftHalf.position.set(-6, 5, -50);
+    leftHalf.castShadow = true;
+    leftHalf.receiveShadow = true;
+    scene.add(leftHalf);
+    addObstacle(leftHalf);
+
+    const rightHalf = new THREE.Mesh(new THREE.BoxGeometry(4, 10, 4), mountainMat);
+    rightHalf.position.set(6, 5, -50);
+    rightHalf.castShadow = true;
+    rightHalf.receiveShadow = true;
+    scene.add(rightHalf);
+    addObstacle(rightHalf);
+
+    // Остальная гряда — пропускаем центральную зону шириной 16
     for (let x = -50; x <= 50; x += 4) {
-      const height = 6 + Math.random() * 6;
-      const mountain = new THREE.Mesh(
-        new THREE.BoxGeometry(4, height, 4),
-        mountainMat
-      );
-      mountain.position.set(x, height / 2, -50);
+      if (x >= -8 && x <= 8) continue;
+      const h = 6 + Math.random() * 6;
+      const mountain = new THREE.Mesh(new THREE.BoxGeometry(4, h, 4), mountainMat);
+      mountain.position.set(x, h / 2, -50);
       mountain.castShadow = true;
       mountain.receiveShadow = true;
       scene.add(mountain);
@@ -940,7 +1019,17 @@
     }
   }
 
+
+
   buildMountains();
+
+  // Платформа земли за горами (появляется сразу, но визуально скрыта горами)
+  const backArea = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 50), matFloor);
+  backArea.scale.z = 1.2; // удлиним немного по глубине
+  backArea.position.set(0, -0.5, -80); // дальше за -50
+  backArea.receiveShadow = true;
+  scene.add(backArea);
+  addObstacle(backArea);
 
 
   function createTree(x, z) {
@@ -1055,6 +1144,18 @@
         if (currentWeapon === "Меч") damage = 0.5;
         if (currentWeapon === "Меч+") damage = 1;
 
+        if (dragon && dragon.alive && player.position.distanceTo(dragon.position) < 3) {
+          dragon.health -= damage;
+          if (dragon.health <= 0) {
+            dragon.alive = false;
+            scene.remove(dragon);
+            dragon.healthBar.container.remove();
+            dragonDefeated = true;
+            updateUI();
+            showDialogue("Ты победил дракона! Теперь ты действительно кто-то.");
+          }
+        }
+
         if (enemyInside && enemyInside.alive && player.position.distanceTo(enemyInside.position) < 2) {
           enemyInside.health -= damage;
           if (enemyInside.health <= 0) {
@@ -1141,6 +1242,36 @@
         enemyInside.userData.attackTimer = 0;
       }
     }
+
+
+
+
+    if (dragon && dragon.alive) {
+      const dist = player.position.distanceTo(dragon.position);
+      const dir = player.position.clone().sub(dragon.position);
+      const horizontalDir = new THREE.Vector3(dir.x, 0, dir.z);
+      const distance = horizontalDir.length();
+
+      if (dist < 10) {
+        if (distance > 3) {
+          dragon.position.add(horizontalDir.normalize().multiplyScalar(0.04));
+        }
+        dragon.lookAt(player.position.clone().setY(dragon.position.y));
+
+        if (distance <= 3) {
+          dragon.userData.attackTimer = (dragon.userData.attackTimer || 0) + 0.016;
+          if (dragon.userData.attackTimer >= 0.5) {
+            dragon.userData.attackTimer = 0;
+            takeDamage(); takeDamage(); // урон ×2
+          }
+        } else {
+          dragon.userData.attackTimer = 0;
+        }
+      }
+
+      updateHealthBar(dragon);
+    }
+
 
 
 
@@ -1490,6 +1621,63 @@
   fire.receiveShadow = true;
   fire.castShadow = true;
   scene.add(fire);
+
+
+
+  let dragon = null;
+
+  function createDragon(x, z) {
+    const mat = new THREE.MeshStandardMaterial({ color: 0x990000 });
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.8, 5.4), mat);
+    body.position.y = 1.8;
+    body.castShadow = true;
+    group.add(body);
+
+    const head = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), mat);
+    head.position.set(0, 2.2, 3);
+    head.castShadow = true;
+    group.add(head);
+
+    const legPositions = [
+      [-0.6, 0.9, -1.8],
+      [0.6, 0.9, -1.8],
+      [-0.6, 0.9, 1.8],
+      [0.6, 0.9, 1.8],
+    ];
+    for (const [x, y, z] of legPositions) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.8, 0.45), mat);
+      leg.position.set(x, y, z);
+      leg.castShadow = true;
+      group.add(leg);
+    }
+
+    // Крылья
+    const wingGeo = new THREE.BoxGeometry(2, 0.1, 4);
+    const wing1 = new THREE.Mesh(wingGeo, mat);
+    const wing2 = new THREE.Mesh(wingGeo, mat);
+    wing1.position.set(-2, 2.5, 0);
+    wing2.position.set(2, 2.5, 0);
+    wing1.rotation.y = Math.PI / 8;
+    wing2.rotation.y = -Math.PI / 8;
+    wing1.castShadow = true;
+    wing2.castShadow = true;
+    group.add(wing1);
+    group.add(wing2);
+
+    group.castShadow = true;
+    group.health = 6;
+    group.maxHealth = 6;
+    group.healthBar = createHealthBar();
+    group.alive = true;
+    scene.add(group);
+    return group;
+  }
+
+
+  dragon = createDragon(0, -80);
 
 
 
