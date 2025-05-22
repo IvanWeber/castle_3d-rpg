@@ -303,6 +303,11 @@
 
   let currentWeapon = "Меч";
 
+  sword.visible = true;
+  strongSword.visible = false;
+  claw.visible = false;
+  fist.visible = false;
+
   function showDialogue(text, choices = [], callback = null) {
     isTalking = true;
     selectedIndex = 0;
