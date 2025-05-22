@@ -259,7 +259,8 @@
   scene.add(player);
 
   const matSword = new THREE.MeshStandardMaterial({ color: 0xcccccc });
-  const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.2), matSword);
+  const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.2), matSword); // Меч короче
+
   sword.castShadow = true;
   sword.visible = false;
 
@@ -278,6 +279,17 @@
   rightHand.add(claw);
   rightHand.add(fist);
 
+  
+
+
+  const strongSword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.2), matSword);
+  strongSword.castShadow = true;
+  strongSword.visible = false;
+  rightHand.add(strongSword);
+  strongSword.position.set(0, -0.3, 0.2);
+  strongSword.rotation.x = Math.PI / 2;
+
+
   // Расположение — "торчит из кисти под углом 90°"
   sword.position.set(0, -0.3, 0.2); // ближе к кисти
   sword.rotation.x = Math.PI / 2;
@@ -289,7 +301,7 @@
   fist.position.set(0, -0.6, 0);
 
 
-  let currentWeapon = "Кулак";
+  let currentWeapon = "Меч";
 
   function showDialogue(text, choices = [], callback = null) {
     isTalking = true;
@@ -342,12 +354,13 @@
 
       if (e.key.toLowerCase() === "i") {
         if (!isTalking) {
-          const choices = ["Кулак"];
+          const choices = ["Меч"];
           if (inventory.includes("Коготь")) choices.push("Коготь");
-          if (inventory.includes("Меч")) choices.push("Меч");
+          if (inventory.includes("Меч+")) choices.push("Меч+");
           showDialogue("Выберите оружие:", choices, choice => {
             currentWeapon = choice;
             sword.visible = (choice === "Меч");
+            strongSword.visible = (choice === "Меч+");
             claw.visible = (choice === "Коготь");
             fist.visible = (choice === "Кулак");
           });
@@ -406,12 +419,13 @@
 
   // Открытие инвентаря — X (2)
   if (buttons[2].pressed && !gpPrevButtons[2] && !isTalking) {
-    const choices = ["Кулак"];
+    const choices = ["Меч"];
     if (inventory.includes("Коготь")) choices.push("Коготь");
-    if (inventory.includes("Меч")) choices.push("Меч");
+    if (inventory.includes("Меч+")) choices.push("Меч+");
     showDialogue("Выберите оружие:", choices, choice => {
       currentWeapon = choice;
       sword.visible = (choice === "Меч");
+      strongSword.visible = (choice === "Меч+");
       claw.visible = (choice === "Коготь");
       fist.visible = (choice === "Кулак");
     });
@@ -496,37 +510,38 @@
 
   createNPC(-5, 0, 0xffff00, () => {
     if (!questGiven) {
-      showDialogue("Мессир Таппенцаль! Выглядите как человек, который может сразить врага у ворот. Сделайте это — и я открою ворота. Не знаю, зачем вам нужно в замок... но раз уж вы здесь, кто я такой, чтобы мешать.", ["Принять", "Позже"], choice => {
+      showDialogue("Мессир Таппенцаль, наша деревня страдает от волков в западном лесу. Четыре зверя, наглых и голодных. Убейте их — и я дам вам рекомендательное письмо к стражникам замка.", ["Принять", "Позже"], choice => {
         if (choice === "Принять") questGiven = true;
       });
     } else if (questComplete && !rewardGiven) {
-      showDialogue("Превосходно! Вот ваша награда. Я открываю ворота. Не знаю, зачем вам туда... Но там внутри, кстати, ходит розовый субъект... Не спрашивай. Просто не спрашивай.", ["Спасибо!"], () => {
-        gold += 20;
-        updateUI();
-        gateOpen = true;
-        obstacles.splice(obstacles.indexOf(gate), 1);
+      showDialogue("Вы избавили нас от волков? Великолепно. Вот немного золота и моё личное письмо. Покажите его страже у замка — может, вас пустят внутрь.", ["Спасибо!"], () => {
+        gold += 30;
+        inventory.push("Рекомендация");
         rewardGiven = true;
+        updateUI();
       });
     } else if (questComplete && rewardGiven) {
-      showDialogue("Ворота открыты. Не знаю, зачем вам туда, но... путь свободен.");
+      showDialogue("Вы уже всё сделали, мессир. Пусть удача будет с вами в стенах замка.");
     } else {
-      showDialogue("Сразите врага у ворот. Не медлите, мессир.");
+      showDialogue("Не забудьте: западный лес, четыре волка.");
     }
   });
 
 
   createNPC(5, 0, 0xff8800, () => {
     if (!swordSold) {
-      showDialogue("Меч. Надёжный, тяжёлый, с историей. Цена — 10 золотых. Убедите себя, что он вам нужен.", ["Купить", "Нет"], choice => {
-        if (choice === "Купить" && gold >= 10) {
-          gold -= 10;
-          inventory.push("Меч");
+      showDialogue("Настоящий меч. Длиннее, тяжелее, эффективнее. Цена — 30 золотых.", ["Купить", "Нет"], choice => {
+        if (choice === "Купить" && gold >= 30) {
+          gold -= 30;
+          inventory.push("Меч+");
           swordSold = true;
           updateUI();
+        } else if (choice === "Купить") {
+          showDialogue("У вас недостаточно золота.");
         }
       });
     } else {
-      showDialogue("Я продал последний меч. Теперь вы один на один с судьбой.");
+      showDialogue("Я продал последний меч. Больше таких не будет.");
     }
   });
 
@@ -711,7 +726,55 @@
     return enemy;
   }
 
-  const enemy = createEnemy(0, -10, 0xff0000);
+
+  function createWolf(x, z) {
+    const mat = new THREE.MeshStandardMaterial({ color: 0x444444 });
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+
+    // Тело вдоль оси Z (вперёд-назад)
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 1.8), mat);
+    body.position.y = 0.6;
+    body.castShadow = true;
+    group.add(body);
+
+    // Голова — спереди
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mat);
+    head.position.set(0, 0.75, 1);
+    head.castShadow = true;
+    group.add(head);
+
+    // 4 ноги (позиции: по краям тела)
+    const legPositions = [
+      [-0.2, 0.3, -0.6],
+      [0.2, 0.3, -0.6],
+      [-0.2, 0.3, 0.6],
+      [0.2, 0.3, 0.6],
+    ];
+    for (const [x, y, z] of legPositions) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.6, 0.15), mat);
+      leg.position.set(x, y, z);
+      leg.castShadow = true;
+      group.add(leg);
+    }
+
+    group.castShadow = true;
+    scene.add(group);
+
+    const enemy = group;
+    enemy.health = 3;
+    enemy.maxHealth = 3;
+    enemy.healthBar = createHealthBar();
+    enemy.alive = true;
+    enemy.path = [];
+    enemy.pathIndex = 0;
+    return enemy;
+  }
+
+
+
+
+
   const enemyInside = createEnemy(0, 25, 0xff00ff);
 
   let velocityY = 0;
@@ -897,6 +960,16 @@
     scene.add(crown);
   }
 
+
+
+
+  // Лес в западной части карты
+  for (let i = 0; i < 15; i++) {
+    const x = -45 + Math.random() * 30;
+    const z = -15 + Math.random() * 30;
+    createTree(x, z);
+  }
+
   // Три дерева на разных позициях
   createTree(8, -5);
   createTree(-5, 8);
@@ -970,9 +1043,10 @@
         isAttacking = false;
         let damage = 0.5;
         if (currentWeapon === "Коготь") damage = 1;
-        if (currentWeapon === "Меч") damage = 3;
+        if (currentWeapon === "Меч") damage = 0.5;
+        if (currentWeapon === "Меч+") damage = 1;
 
-        [enemy, enemyInside].forEach(en => {
+        [enemyInside].forEach(en => {
           if (en.alive && player.position.distanceTo(en.position) < 2) {
             en.health -= damage;
             if (en.health <= 0) {
@@ -990,6 +1064,27 @@
             }
           }
         });
+
+
+        // === Проверка удара по волкам ===
+        wolves.forEach((wolf) => {
+          if (wolf.alive && player.position.distanceTo(wolf.position) < 2) {
+            wolf.health -= damage;
+            if (wolf.health <= 0) {
+              wolf.alive = false;
+              scene.remove(wolf);
+              wolf.healthBar.container.remove();
+              updateUI();
+
+              // Если все волки мертвы — квест выполнен
+              if (wolves.every(w => !w.alive)) {
+                questComplete = true;
+              }
+            }
+          }
+        });
+
+
       }
     }
 
@@ -1022,7 +1117,7 @@
 
 
 
-    [enemy, enemyInside].forEach(en => {
+    [enemyInside].forEach(en => {
       if (en.alive) {
         chase(en);
         updateHealthBar(en);
@@ -1037,6 +1132,55 @@
         }
       }
     });
+
+
+
+
+    // === ЛОГИКА ВОЛКОВ ===
+    wolves.forEach(wolf => {
+      if (!wolf.alive) return;
+
+      const dist = player.position.distanceTo(wolf.position);
+      const dir = player.position.clone().sub(wolf.position);
+      const horizontalDir = new THREE.Vector3(dir.x, 0, dir.z);
+      const distance = horizontalDir.length();
+
+      if (dist < 6) {
+        // Преследование
+        if (distance > 2.2) {
+          wolf.position.add(horizontalDir.normalize().multiplyScalar(0.05));
+        }
+
+        wolf.lookAt(player.position.clone().setY(wolf.position.y));
+
+        if (distance <= 2.2) {
+          wolf.userData.attackTimer = (wolf.userData.attackTimer || 0) + 0.016;
+          if (wolf.userData.attackTimer >= 1) {
+            wolf.userData.attackTimer = 0;
+            takeDamage();
+          }
+        } else {
+          wolf.userData.attackTimer = 0;
+        }
+
+      } else {
+        // Патрулирование
+        const target = wolf.path[wolf.pathIndex];
+        const patrolDir = target.clone().sub(wolf.position);
+        if (patrolDir.length() < 0.5) {
+          wolf.pathIndex = (wolf.pathIndex + 1) % wolf.path.length;
+        } else {
+          wolf.position.add(patrolDir.normalize().multiplyScalar(0.02));
+          wolf.lookAt(target.clone().setY(wolf.position.y));
+        }
+        wolf.userData.attackTimer = 0;
+      }
+
+      updateHealthBar(wolf);
+    });
+
+
+
 
     if (gateOpen && gate.position.y < 10) {
       gate.position.y += 0.1;
@@ -1157,7 +1301,7 @@
 
 
 
-    [enemy, enemyInside].forEach(en => {
+    [enemyInside].forEach(en => {
       if (en.alive && player.position.distanceTo(en.position) < 5) {
         if (!en.walkCycle) en.walkCycle = 0;
         en.walkCycle += 0.016;
@@ -1262,6 +1406,23 @@
   document.addEventListener("keydown", skipIntro);
   window.addEventListener("gamepadconnected", gamepadIntroConnect);
 
+
+
+  const wolves = [];
+const wolfPaths = [
+  [ [-25, -8], [-27, -10], [-30, -14], [-25, -11] ],
+  [ [-37, 3], [-42, -1], [-44, -3], [-41, 1] ],
+  [ [-42, 12], [-39, 13], [-41, 15], [-37, 14] ],
+  [ [-39, -5], [-40, -8], [-42, -8], [-46, -12] ]
+];
+
+wolfPaths.forEach(path => {
+  const wolf = createWolf(path[0][0], path[0][1]);
+  wolf.path = path.map(p => new THREE.Vector3(p[0], 0, p[1]));
+  wolf.pathIndex = 0;
+  wolf.pathTimer = 0;
+  wolves.push(wolf);
+});
 
 
 
