@@ -495,6 +495,12 @@
 
   const npcs = [];
   let questGiven = false;
+
+  let eastQuestGiven = false;
+  let eastQuestComplete = false;
+  let eastRewardGiven = false;
+  let bandits = [];
+
   let questComplete = false;
   let rewardGiven = false;
   let swordSold = false;
@@ -505,8 +511,11 @@
     npc.talk = talkFn;
     npc.castShadow = true;
     scene.add(npc);
-    npcs.push({ group: npc, talk: talkFn });
+    const npcObj = { group: npc, talk: talkFn };
+    npcs.push(npcObj);
+    return npcObj;
   }
+
 
   createNPC(-5, 0, 0xffff00, () => {
     if (!questGiven) {
@@ -604,6 +613,38 @@
       showDialogue("Удивительно. Вы нашли ключ, который не открывает ничего. Настоящая победа. Пользоваться им не нужно. Просто... владейте.", ["...спасибо?"], () => {});
     }
   });
+
+
+  const guardNPC = createNPC(0, 8, 0x444444, () => {
+    if (!inventory.includes("Рекомендация")) {
+      showDialogue("Вход в замок закрыт. Без рекомендации не пущу.", ["Понятно"], () => {});
+      return;
+    }
+
+    if (!eastQuestGiven) {
+      showDialogue("Вы получили рекомендацию? Хорошо. Но есть ещё просьба — восточный лес страдает от разбойников. Их трое. Разберитесь с ними, и я открою ворота.", ["Принять", "Позже"], choice => {
+        if (choice === "Принять") eastQuestGiven = true;
+      });
+    } else if (eastQuestComplete && !eastRewardGiven) {
+      showDialogue("Вы победили разбойников? Отлично. Вот 40 золотых. И…", ["Спасибо"], () => {
+        gold += 40;
+        gateOpen = true;
+        eastRewardGiven = true;
+        updateUI();
+      });
+    } else if (eastRewardGiven) {
+      showDialogue("Проход открыт. Удачи вам внутри.");
+    } else {
+      showDialogue("Разбойники ещё не побеждены. Их трое, восточный лес.");
+    }
+  });
+
+  // Повернуть стражника лицом к игроку (180 градусов)
+  guardNPC.group.rotation.y = Math.PI;
+
+
+
+
 
   const greenEnemy = createEnemy(15, 35, 0x00ff00);
   buildWall(15, 3, 35, 6, 6, 6);
@@ -775,7 +816,7 @@
 
 
 
-  const enemyInside = createEnemy(0, 25, 0xff00ff);
+  const enemyInside = null;
 
   let velocityY = 0;
   let isOnGround = false;
@@ -970,6 +1011,14 @@
     createTree(x, z);
   }
 
+  // Лес в восточной части карты — возле разбойников
+  for (let i = 0; i < 12; i++) {
+    const x = 30 + Math.random() * 20;
+    const z = -15 + Math.random() * 20;
+    createTree(x, z);
+  }
+
+
   // Три дерева на разных позициях
   createTree(8, -5);
   createTree(-5, 8);
@@ -1046,24 +1095,16 @@
         if (currentWeapon === "Меч") damage = 0.5;
         if (currentWeapon === "Меч+") damage = 1;
 
-        [enemyInside].forEach(en => {
-          if (en.alive && player.position.distanceTo(en.position) < 2) {
-            en.health -= damage;
-            if (en.health <= 0) {
-              en.alive = false;
-              scene.remove(en);
-              en.healthBar.container.remove();
-              if (en === enemy) {
-                inventory.push("Коготь");
-                gold += 10;
-                if (questGiven) questComplete = true;
-              } else {
-                gold += 50;
-              }
-              updateUI();
-            }
+        if (enemyInside && enemyInside.alive && player.position.distanceTo(enemyInside.position) < 2) {
+          enemyInside.health -= damage;
+          if (enemyInside.health <= 0) {
+            enemyInside.alive = false;
+            scene.remove(enemyInside);
+            enemyInside.healthBar.container.remove();
+            gold += 50; // можно корректировать награду
+            updateUI();
           }
-        });
+        }
 
 
         // === Проверка удара по волкам ===
@@ -1079,6 +1120,26 @@
               // Если все волки мертвы — квест выполнен
               if (wolves.every(w => !w.alive)) {
                 questComplete = true;
+              }
+            }
+          }
+        });
+
+
+
+
+        bandits.forEach(b => {
+          if (b.alive && player.position.distanceTo(b.position) < 2) {
+            b.health -= damage;
+            if (b.health <= 0) {
+              b.alive = false;
+              scene.remove(b);
+              b.healthBar.container.remove();
+              updateUI();
+
+              // Если все разбойники побеждены — отметить выполнение квеста
+              if (bandits.every(b => !b.alive)) {
+                eastQuestComplete = true;
               }
             }
           }
@@ -1117,21 +1178,20 @@
 
 
 
-    [enemyInside].forEach(en => {
-      if (en.alive) {
-        chase(en);
-        updateHealthBar(en);
-        if (player.position.distanceTo(en.position) < 2) {
-          en.userData.attackTimer = (en.userData.attackTimer || 0) + 0.016;
-          if (en.userData.attackTimer >= 1) {
-            en.userData.attackTimer = 0;
-            takeDamage();
-          }
-        } else {
-          en.userData.attackTimer = 0;
+    if (enemyInside && enemyInside.alive) {
+      chase(enemyInside);
+      updateHealthBar(enemyInside);
+      if (player.position.distanceTo(enemyInside.position) < 2) {
+        enemyInside.userData.attackTimer = (enemyInside.userData.attackTimer || 0) + 0.016;
+        if (enemyInside.userData.attackTimer >= 1) {
+          enemyInside.userData.attackTimer = 0;
+          takeDamage();
         }
+      } else {
+        enemyInside.userData.attackTimer = 0;
       }
-    });
+    }
+
 
 
 
@@ -1178,6 +1238,46 @@
 
       updateHealthBar(wolf);
     });
+
+
+    bandits.forEach(b => {
+      if (!b.alive) return;
+
+      const dir = player.position.clone().sub(b.position);
+      dir.y = 0; // только по XZ
+      const distXZ = dir.length();
+
+      if (distXZ < 6) {
+        if (distXZ > 2.2) {
+          b.position.add(dir.normalize().multiplyScalar(0.04));
+        }
+        b.lookAt(player.position.clone().setY(b.position.y));
+
+        if (distXZ <= 2.2) {
+          b.userData.attackTimer = (b.userData.attackTimer || 0) + 0.016;
+          if (b.userData.attackTimer >= 1) {
+            b.userData.attackTimer = 0;
+            takeDamage();
+          }
+        } else {
+          b.userData.attackTimer = 0;
+        }
+      } else if (b.path) {
+        const target = b.path[b.pathIndex];
+        const patrolDir = target.clone().sub(b.position);
+        if (patrolDir.length() < 0.5) {
+          b.pathIndex = (b.pathIndex + 1) % b.path.length;
+        } else {
+          b.position.add(patrolDir.normalize().multiplyScalar(0.02));
+          b.lookAt(target.clone().setY(b.position.y));
+        }
+        b.userData.attackTimer = 0;
+      }
+
+      updateHealthBar(b);
+    });
+
+
 
 
 
@@ -1301,21 +1401,9 @@
 
 
 
-    [enemyInside].forEach(en => {
-      if (en.alive && player.position.distanceTo(en.position) < 5) {
-        if (!en.walkCycle) en.walkCycle = 0;
-        en.walkCycle += 0.016;
-        const sin = Math.sin(en.walkCycle * 6) * 0.5;
-        const cos = Math.cos(en.walkCycle * 6) * 0.5;
-
-        en.children.forEach(part => {
-          if (part.name === "leftArm") part.rotation.x = cos;
-          if (part.name === "rightArm") part.rotation.x = -cos;
-          if (part.name === "leftLeg") part.rotation.x = -cos;
-          if (part.name === "rightLeg") part.rotation.x = cos;
-        });
-      }
-    });
+    if (enemyInside && enemyInside.alive) {
+      // врага нет, логика не нужна
+    }
 
 
     // Анимация открытия/закрытия двери
@@ -1409,21 +1497,47 @@
 
 
   const wolves = [];
-const wolfPaths = [
-  [ [-25, -8], [-27, -10], [-30, -14], [-25, -11] ],
-  [ [-37, 3], [-42, -1], [-44, -3], [-41, 1] ],
-  [ [-42, 12], [-39, 13], [-41, 15], [-37, 14] ],
-  [ [-39, -5], [-40, -8], [-42, -8], [-46, -12] ]
-];
+  const wolfPaths = [
+    [ [-25, -8], [-27, -10], [-30, -14], [-25, -11] ],
+    [ [-37, 3], [-42, -1], [-44, -3], [-41, 1] ],
+    [ [-42, 12], [-39, 13], [-41, 15], [-37, 14] ],
+    [ [-39, -5], [-40, -8], [-42, -8], [-46, -12] ]
+  ];
 
-wolfPaths.forEach(path => {
-  const wolf = createWolf(path[0][0], path[0][1]);
-  wolf.path = path.map(p => new THREE.Vector3(p[0], 0, p[1]));
-  wolf.pathIndex = 0;
-  wolf.pathTimer = 0;
-  wolves.push(wolf);
-});
+  wolfPaths.forEach(path => {
+    const wolf = createWolf(path[0][0], path[0][1]);
+    wolf.path = path.map(p => new THREE.Vector3(p[0], 0, p[1]));
+    wolf.pathIndex = 0;
+    wolf.pathTimer = 0;
+    wolves.push(wolf);
+  });
 
+  function createBandit(x, z, color = 0x882200) {
+    const bandit = createEnemy(x, z, color);
+    bandit.isBandit = true;
+    bandits.push(bandit);
+    return bandit;
+  }
+
+  const patrolBandit = createBandit(35, -5);
+  patrolBandit.path = [
+    new THREE.Vector3(32, 0, -5),
+    new THREE.Vector3(38, 0, -5)
+  ];
+  patrolBandit.pathIndex = 0;
+
+  const campBandit1 = createBandit(42, -7);
+  const campBandit2 = createBandit(44, -6);
+
+  // Костёр
+  const fire = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.3, 0.3, 0.2, 12),
+    new THREE.MeshStandardMaterial({ color: 0xffaa00 })
+  );
+  fire.position.set(43, 0.1, -6.5);
+  fire.receiveShadow = true;
+  fire.castShadow = true;
+  scene.add(fire);
 
 
 
