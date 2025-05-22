@@ -562,56 +562,6 @@
   });
 
 
-  createNPC(-15, -5, 0xaa00aa, () => {
-    if (!inventory.includes("Свиток")) {
-      showDialogue("Ах, мессир! Я — профессор инструкционных наук. Мой шедевр — свиток с точнейшими указаниями, как попасть в замок... но его унёс весьма возмущённый синий тип, что поселился в домике к западу. Верните свиток!", ["Хорошо", "Нет времени"], choice => {});
-    } else {
-      showDialogue("Вы нашли свиток? Превосходно. Прочтите: 'Чтобы войти в замок, убедитесь, что вы находитесь внутри замка'. Гениально, не так ли?", ["...да."], () => {});
-    }
-  });
-
-  const blueEnemy = createEnemy(-25, -5, 0x0000ff);
-
-  const houseMat = new THREE.MeshStandardMaterial({ color: 0x775533 });
-  const house = new THREE.Group();
-
-  // Левая стена
-  const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 6), houseMat);
-  wallLeft.position.set(-2.75, 2, 0);
-  wallLeft.castShadow = true;
-  wallLeft.receiveShadow = true;
-  house.add(wallLeft);
-  addObstacle(wallLeft);
-
-  // Правая стена
-  const wallRight = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 6), houseMat);
-  wallRight.position.set(2.75, 2, 0);
-  wallRight.castShadow = true;
-  wallRight.receiveShadow = true;
-  house.add(wallRight);
-  addObstacle(wallRight);
-
-  // Задняя стена
-  const wallBack = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 0.5), houseMat);
-  wallBack.position.set(0, 2, -2.75);
-  wallBack.castShadow = true;
-  wallBack.receiveShadow = true;
-  house.add(wallBack);
-  addObstacle(wallBack);
-
-  // Крыша
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(6, 0.5, 6), houseMat);
-  roof.position.set(0, 4.25, 0);
-  roof.castShadow = true;
-  roof.receiveShadow = true;
-  house.add(roof);
-  addObstacle(roof);
-
-  // Установка всей группы
-  house.position.set(-25, 0, -5);
-  scene.add(house);
-
-
 
   createNPC(0, 35, 0x000000, () => {
     if (!inventory.includes("Философский ключ")) {
@@ -1159,16 +1109,6 @@
 
         // Проверка победы над новыми врагами
         if (isAttacking) {
-      if (blueEnemy.alive && player.position.distanceTo(blueEnemy.position) < 2) {
-        blueEnemy.health -= 1;
-        if (blueEnemy.health <= 0) {
-          blueEnemy.alive = false;
-          scene.remove(blueEnemy);
-          blueEnemy.healthBar.container.remove();
-          inventory.push("Свиток");
-          updateUI();
-        }
-      }
 
       if (greenEnemy.alive && player.position.distanceTo(greenEnemy.position) < 2) {
         greenEnemy.health -= 1;
