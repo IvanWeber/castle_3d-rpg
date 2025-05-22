@@ -1680,6 +1680,31 @@
   dragon = createDragon(0, -80);
 
 
+  const greenMat = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+
+function greenWall(x, y, z, w, h, d) {
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), greenMat);
+  wall.position.set(x, y + h / 2, z);
+  wall.castShadow = true;
+  wall.receiveShadow = true;
+  scene.add(wall);
+  addObstacle(wall);
+}
+
+// === Основная (южная) платформа ===
+greenWall(0, 0,  50.5, 100, 3, 1);  // юг
+// север (пропуск у гряды)
+greenWall(-50.5, 0, 0, 1, 3, 100); // запад
+greenWall(50.5, 0, 0, 1, 3, 100);  // восток
+
+// === Драконова (северная) платформа ===
+// === Стена за драконом (север)
+greenWall(0, 0, -110.5, 100, 3, 1);
+// юг (пропуск у гряды)
+// === Боковые стены
+greenWall(-50.5, 0, -85, 1, 3, 70); // запад
+greenWall(50.5, 0, -85, 1, 3, 70);  // восток
+
 
 
   animate();
