@@ -69,6 +69,8 @@
   const healthEl = document.getElementById("health");
   const redFlash = document.getElementById("redFlash");
 
+  const allDoors = [];
+
   let gold = 0;
   let inventory = [];
   let isTalking = false;
@@ -354,9 +356,14 @@
         const npc = npcs.find(n => n.group.position.distanceTo(player.position) < 2.5);
         if (npc) {
           npc.talk();
-        } else if (player.position.distanceTo(orangeHouseDoor.getWorldPosition(new THREE.Vector3())) < 4) {
-          if (doorState === "closed") doorState = "opening";
-          else if (doorState === "open") doorState = "closing";
+        } else {
+          const doorEntry = allDoors.find(d =>
+            player.position.distanceTo(d.pivot.getWorldPosition(new THREE.Vector3())) < 4
+          );
+          if (doorEntry) {
+            if (doorEntry.state === "closed") doorEntry.state = "opening";
+            else if (doorEntry.state === "open") doorEntry.state = "closing";
+          }
         }
       }
 
@@ -545,7 +552,7 @@
   });
 
 
-  createNPC(5, 0, 0xff8800, () => {
+  const orangeNPC = createNPC(10, -15, 0xff8800, () => {
     if (!swordSold) {
       showDialogue("Настоящий меч. Длиннее, тяжелее, эффективнее. Цена — 30 золотых.", ["Купить", "Нет"], choice => {
         if (choice === "Купить" && gold >= 30) {
@@ -561,6 +568,13 @@
       showDialogue("Я продал последний меч. Больше таких не будет.");
     }
   });
+
+  // Добавляем домик для оранжевого
+  const orangeHouse = createOrangeHouse(10, -15);
+  const orangeHouse2 = createOrangeHouse(25, -25);
+  orangeHouseDoor = orangeHouse.door;
+  orangeHouseDoorPivot = orangeHouse.doorPivot;
+
 
 
 
@@ -605,16 +619,15 @@
 
 
   const greenEnemy = createEnemy(15, 35, 0x00ff00);
-  buildWall(15, 3, 35, 6, 6, 6);
+    buildWall(15, 3, 35, 6, 6, 6);
 
-  function buildOrangeHouse() {
+    function createOrangeHouse(x, z) {
     const houseMat = new THREE.MeshStandardMaterial({ color: 0x996633 });
     const house = new THREE.Group();
 
     const width = 10;
     const depth = 10;
 
-    // Стены
     const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, depth), houseMat);
     wallLeft.position.set(-width / 2 + 0.25, 2, 0);
     wallLeft.castShadow = true;
@@ -635,7 +648,6 @@
     roof.castShadow = true;
     house.add(roof); addObstacle(roof);
 
-    // Дверной проём
     const doorWallLeft = new THREE.Mesh(new THREE.BoxGeometry(1, 3, 0.2), houseMat);
     doorWallLeft.position.set(-2, 1.5, depth / 2 + 0.1);
     house.add(doorWallLeft); addObstacle(doorWallLeft);
@@ -644,50 +656,41 @@
     doorWallRight.position.set(2, 1.5, depth / 2 + 0.1);
     house.add(doorWallRight); addObstacle(doorWallRight);
 
-    // Верх над дверью
     const doorTop = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 0.2), houseMat);
     doorTop.position.set(0, 3.75, depth / 2 + 0.1);
     house.add(doorTop); addObstacle(doorTop);
 
-    // Левая часть фронтальной стены
     const frontLeft = new THREE.Mesh(new THREE.BoxGeometry(3.5, 6, 0.2), houseMat);
     frontLeft.position.set(-3.25, 1.5, depth / 2 + 0.1);
     house.add(frontLeft); addObstacle(frontLeft);
 
-    // Правая часть фронтальной стены
     const frontRight = new THREE.Mesh(new THREE.BoxGeometry(3.5, 6, 0.2), houseMat);
     frontRight.position.set(3.25, 1.5, depth / 2 + 0.1);
     house.add(frontRight); addObstacle(frontRight);
 
+    const doorPivot = new THREE.Group();
+    doorPivot.position.set(-1.5, 0, depth / 2 + 0.1);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 0.2), new THREE.MeshStandardMaterial({ color: 0x552200 }));
+    door.position.set(1.5, 1.5, 0);
+    door.castShadow = true;
+    doorPivot.add(door);
+    house.add(doorPivot);
+    addObstacle(door);
 
-    orangeHouseDoorPivot = new THREE.Group();
-    orangeHouseDoorPivot.position.set(-1.5, 0, depth / 2 + 0.1);
-    orangeHouseDoor = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 0.2), new THREE.MeshStandardMaterial({ color: 0x552200 }));
-    orangeHouseDoor.position.set(1.5, 1.5, 0);
-    orangeHouseDoor.castShadow = true;
-    orangeHouseDoorPivot.add(orangeHouseDoor);
-    house.add(orangeHouseDoorPivot);
-    addObstacle(orangeHouseDoor);
-
-    // Прилавок
     const counter = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 0.5), new THREE.MeshStandardMaterial({ color: 0x443322 }));
     counter.position.set(0, 0.5, 1);
     counter.castShadow = true;
     house.add(counter); addObstacle(counter);
 
-    house.position.set(10, 0, -15);
+    house.position.set(x, 0, z);
     scene.add(house);
 
-    // Перемещаем оранжевого NPC внутрь дома, за стойку
-    const npc = npcs.find(n => n.group.position.x === 5 && n.group.position.z === 0);
-    if (npc) {
-      npc.group.position.set(10, 0, -15); // чуть позади стойки
-      npc.group.rotation.y = Math.PI; // лицом к двери
-    }
+    allDoors.push({ door, pivot: doorPivot, state: "closed" });
+
+    return house;
   }
 
 
-  buildOrangeHouse();
 
 
 
@@ -1355,19 +1358,22 @@
 
 
     // Анимация открытия/закрытия двери
-    if (doorState === "opening") {
-      orangeHouseDoorPivot.rotation.y -= 0.05;
-      if (orangeHouseDoorPivot.rotation.y <= -Math.PI / 2) {
-        orangeHouseDoorPivot.rotation.y = -Math.PI / 2;
-        doorState = "open";
-      }
-    } else if (doorState === "closing") {
-      orangeHouseDoorPivot.rotation.y += 0.05;
-      if (orangeHouseDoorPivot.rotation.y >= 0) {
-        orangeHouseDoorPivot.rotation.y = 0;
-        doorState = "closed";
+    for (const d of allDoors) {
+      if (d.state === "opening") {
+        d.pivot.rotation.y -= 0.05;
+        if (d.pivot.rotation.y <= -Math.PI / 2) {
+          d.pivot.rotation.y = -Math.PI / 2;
+          d.state = "open";
+        }
+      } else if (d.state === "closing") {
+        d.pivot.rotation.y += 0.05;
+        if (d.pivot.rotation.y >= 0) {
+          d.pivot.rotation.y = 0;
+          d.state = "closed";
+        }
       }
     }
+
 
 
 
