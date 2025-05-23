@@ -31,7 +31,8 @@
   <button onclick="copyCode()">Скопировать код</button>
   <div id="codeOutput"></div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<!-- Локальная копия Three.js (r158), чтобы не зависеть от CDN -->
+<script src="three.min.js"></script>
 <script>
 document.addEventListener("contextmenu", e => e.preventDefault());
 

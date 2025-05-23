@@ -34,7 +34,8 @@
   <div id="dialogue"></div>
 </div>
 <div id="redFlash"></div>
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<!-- Локальная копия Three.js (r158), чтобы не зависеть от CDN -->
+<script src="three.min.js"></script>
 <script>
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
