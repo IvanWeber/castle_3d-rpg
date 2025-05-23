@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Редактор карты</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+    #ui {
+      position: absolute;
+      top: 10px; left: 10px;
+      background: rgba(0,0,0,0.6); color: white;
+      padding: 10px; font-family: sans-serif;
+      border-radius: 8px;
+      z-index: 10;
+    }
+    #codeOutput {
+      white-space: pre-wrap;
+      font-family: monospace;
+      background: #222;
+      padding: 10px;
+      margin-top: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+<div id="ui">
+  <div>Тип: <span id="typeName">Стена</span></div>
+  <button onclick="copyCode()">Скопировать код</button>
+  <div id="codeOutput"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script>
+document.addEventListener("contextmenu", e => e.preventDefault());
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
+camera.position.set(0, 10, 20);
+
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const light = new THREE.DirectionalLight(0xffffff, 1.2);
+light.position.set(10, 20, 10);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+
+let blockSize = 2;
+let gridSize = 100;
+
+const gridHelper = new THREE.GridHelper(gridSize, gridSize / blockSize);
+scene.add(gridHelper);
+
+const controls = { forward: 0, strafe: 0, up: 0, yaw: 0, pitch: 0 };
+let mouseDown = false;
+
+document.addEventListener("keydown", e => {
+  if (e.key === "w") controls.forward = 1;
+  if (e.key === "s") controls.forward = -1;
+  if (e.key === "a") controls.strafe = -1;
+  if (e.key === "d") controls.strafe = 1;
+  if (e.key === "e") controls.up = 1;
+  if (e.key === "q") controls.up = -1;
+  if ("12345".includes(e.key)) {
+    selectedType = parseInt(e.key);
+    document.getElementById("typeName").textContent = types[selectedType].name;
+  }
+});
+document.addEventListener("keyup", e => {
+  if (["w", "s"].includes(e.key)) controls.forward = 0;
+  if (["a", "d"].includes(e.key)) controls.strafe = 0;
+  if (["q", "e"].includes(e.key)) controls.up = 0;
+});
+document.addEventListener("mousedown", () => mouseDown = true);
+document.addEventListener("mouseup", () => mouseDown = false);
+document.addEventListener("mousemove", e => {
+  if (mouseDown) {
+    controls.yaw -= e.movementX * 0.002;
+    controls.pitch -= e.movementY * 0.002;
+    controls.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, controls.pitch));
+  }
+});
+
+const types = {
+  1: { name: "Стена", color: 0x888888 },
+  2: { name: "Пол", color: 0x999955 },
+  3: { name: "Дерево", color: 0x885522 },
+  4: { name: "Листва", color: 0x228822 },
+  5: { name: "Камень", color: 0x555555 },
+};
+
+let selectedType = 1;
+const placed = [];
+
+const previewMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+const previewCube = new THREE.Mesh(new THREE.BoxGeometry(blockSize, blockSize, blockSize), previewMat);
+scene.add(previewCube);
+
+function placeBlock(position) {
+  const type = types[selectedType];
+  const block = new THREE.Mesh(
+    new THREE.BoxGeometry(blockSize, blockSize, blockSize),
+    new THREE.MeshStandardMaterial({ color: type.color })
+  );
+  block.position.copy(position).divideScalar(blockSize).floor().multiplyScalar(blockSize).addScalar(blockSize / 2);
+  scene.add(block);
+  placed.push({ x: block.position.x, y: block.position.y, z: block.position.z, type: selectedType, size: blockSize });
+  updateCodeOutput();
+}
+
+function updateCodeOutput() {
+  let code = '';
+  for (const b of placed) {
+    code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.size}, ${b.size}, ${b.size}); // ${types[b.type].name}\n`;
+  }
+  document.getElementById("codeOutput").textContent = code;
+}
+
+function copyCode() {
+  const code = document.getElementById("codeOutput").textContent;
+  navigator.clipboard.writeText(code).then(() => alert("Код скопирован!"));
+}
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+document.addEventListener("mousemove", e => {
+  mouse.x = (e.clientX / innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+});
+document.addEventListener("click", () => {
+  placeBlock(previewCube.position);
+});
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const dir = new THREE.Vector3(Math.sin(controls.yaw), 0, Math.cos(controls.yaw)).normalize();
+  const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
+  camera.position.add(dir.clone().multiplyScalar(controls.forward * 0.3));
+  camera.position.add(right.clone().multiplyScalar(controls.strafe * 0.3));
+  camera.position.y += controls.up * 0.3;
+
+  const look = new THREE.Vector3(
+    Math.sin(controls.yaw) * Math.cos(controls.pitch),
+    Math.sin(controls.pitch),
+    Math.cos(controls.yaw) * Math.cos(controls.pitch)
+  );
+  camera.lookAt(camera.position.clone().add(look));
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersectPoint = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(10));
+  previewCube.position.copy(intersectPoint);
+  previewCube.position.divideScalar(blockSize).floor().multiplyScalar(blockSize).addScalar(blockSize / 2);
+  previewCube.scale.set(blockSize, blockSize, blockSize);
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
