@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -23,18 +24,26 @@
       max-height: 300px;
       overflow-y: auto;
     }
+    input { width: 60px; }
   </style>
 </head>
 <body>
 <div id="ui">
   <div>Тип: <span id="typeName">Стена</span></div>
+  <div>
+    Grid: <input type="number" id="gridSizeInput" value="100">
+    Блок: <input type="number" id="blockSizeInput" value="2">
+    <button onclick="applySettings()">Применить</button>
+  </div>
   <button onclick="copyCode()">Скопировать код</button>
   <div id="codeOutput"></div>
 </div>
-<!-- Локальная копия Three.js (r158), чтобы не зависеть от CDN -->
-<script src="three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 <script>
 document.addEventListener("contextmenu", e => e.preventDefault());
+
+let gridSize = 100;
+let blockSize = 2;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
@@ -49,10 +58,7 @@ light.position.set(10, 20, 10);
 scene.add(light);
 scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
-let blockSize = 2;
-let gridSize = 100;
-
-const gridHelper = new THREE.GridHelper(gridSize, gridSize / blockSize);
+let gridHelper = new THREE.GridHelper(gridSize, gridSize / blockSize);
 scene.add(gridHelper);
 
 const controls = { forward: 0, strafe: 0, up: 0, yaw: 0, pitch: 0 };
@@ -96,9 +102,21 @@ const types = {
 let selectedType = 1;
 const placed = [];
 
-const previewMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
-const previewCube = new THREE.Mesh(new THREE.BoxGeometry(blockSize, blockSize, blockSize), previewMat);
-scene.add(previewCube);
+let previewCube, previewEdge;
+function createPreview() {
+  if (previewCube) scene.remove(previewCube);
+  if (previewEdge) scene.remove(previewEdge);
+  const geom = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+  previewCube = new THREE.Mesh(geom, mat);
+  previewEdge = new THREE.LineSegments(
+    new THREE.EdgesGeometry(geom),
+    new THREE.LineBasicMaterial({ color: 0xffff00 })
+  );
+  scene.add(previewCube);
+  scene.add(previewEdge);
+}
+createPreview();
 
 function placeBlock(position) {
   const type = types[selectedType];
@@ -115,7 +133,8 @@ function placeBlock(position) {
 function updateCodeOutput() {
   let code = '';
   for (const b of placed) {
-    code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.size}, ${b.size}, ${b.size}); // ${types[b.type].name}\n`;
+    code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.size}, ${b.size}, ${b.size}); // ${types[b.type].name}
+`;
   }
   document.getElementById("codeOutput").textContent = code;
 }
@@ -123,6 +142,15 @@ function updateCodeOutput() {
 function copyCode() {
   const code = document.getElementById("codeOutput").textContent;
   navigator.clipboard.writeText(code).then(() => alert("Код скопирован!"));
+}
+
+function applySettings() {
+  gridSize = parseInt(document.getElementById("gridSizeInput").value);
+  blockSize = parseInt(document.getElementById("blockSizeInput").value);
+  scene.remove(gridHelper);
+  gridHelper = new THREE.GridHelper(gridSize, gridSize / blockSize);
+  scene.add(gridHelper);
+  createPreview();
 }
 
 const raycaster = new THREE.Raycaster();
@@ -153,9 +181,9 @@ function animate() {
 
   raycaster.setFromCamera(mouse, camera);
   const intersectPoint = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(10));
-  previewCube.position.copy(intersectPoint);
-  previewCube.position.divideScalar(blockSize).floor().multiplyScalar(blockSize).addScalar(blockSize / 2);
-  previewCube.scale.set(blockSize, blockSize, blockSize);
+  const snapped = intersectPoint.clone().divideScalar(blockSize).floor().multiplyScalar(blockSize).addScalar(blockSize / 2);
+  previewCube.position.copy(snapped);
+  previewEdge.position.copy(snapped);
 
   renderer.render(scene, camera);
 }
