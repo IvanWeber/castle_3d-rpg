@@ -916,18 +916,18 @@
   addObstacle(floor);
 
   const matPlatform = new THREE.MeshStandardMaterial({ color: 0x8888ff });
-  const platform = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 6), matPlatform);
-  platform.position.set(5, 3, 5);
-  platform.receiveShadow = true;
-  scene.add(platform);
-  addObstacle(platform);
+  // const platform = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 6), matPlatform);
+  // platform.position.set(5, 3, 5);
+  // platform.receiveShadow = true;
+  // scene.add(platform);
+  // addObstacle(platform);
 
   
-  const platform2 = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 6), matPlatform);
-  platform2.position.set(10, 2, 5);
-  platform2.receiveShadow = true;
-  scene.add(platform2);
-  addObstacle(platform2);
+  // const platform2 = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 6), matPlatform);
+  // platform2.position.set(10, 2, 5);
+  // platform2.receiveShadow = true;
+  // scene.add(platform2);
+  // addObstacle(platform2);
 
   let gate = null;
   let gateOpen = false;
