@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Редактор карты</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+    #ui {
+      position: absolute;
+      top: 10px; left: 10px;
+      background: rgba(0,0,0,0.6); color: white;
+      padding: 10px; font-family: sans-serif;
+      border-radius: 8px;
+      z-index: 10;
+    }
+    #codeOutput {
+      white-space: pre-wrap;
+      font-family: monospace;
+      background: #222;
+      padding: 10px;
+      margin-top: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    input { width: 60px; }
+    button { margin-top: 4px; }
+  </style>
+</head>
+<body>
+<div id="ui">
+  <div>Тип: <span id="typeName">Стена</span></div>
+  <div>
+    Grid: <input type="number" id="gridSizeInput" value="100">
+    Блок: <input type="number" id="blockSizeInput" value="2">
+    <button onclick="applySettings()">Применить</button>
+  </div>
+  <button onclick="toggleInputMode()" id="modeButton">Режим: Мышь</button>
+  <button onclick="copyCode()">Скопировать код</button>
+  <div id="codeOutput"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script>
+document.addEventListener("contextmenu", e => e.preventDefault());
+
+let gridSize = 100;
+let blockSize = 2;
+let inputMode = "mouse";
+let suppressClick = false;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
+camera.position.set(0, 10, 20);
+
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const light = new THREE.DirectionalLight(0xffffff, 1.2);
+light.position.set(10, 20, 10);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+
+let gridHelper = new THREE.GridHelper(gridSize, gridSize / blockSize);
+scene.add(gridHelper);
+
+const controls = { forward: 0, strafe: 0, up: 0, yaw: 0, pitch: 0 };
+const ghostControls = { x: 0, y: 0, z: 0 };
+let ghostMoveCooldown = 0;
+
+let mouseDown = false;
+
+document.addEventListener("keydown", e => {
+  if (e.key === "w") controls.forward = 1;
+  if (e.key === "s") controls.forward = -1;
+  if (e.key === "a") controls.strafe = -1;
+  if (e.key === "d") controls.strafe = 1;
+  if (e.key === "e") controls.up = 1;
+  if (e.key === "q") controls.up = -1;
+
+  if (e.key === "ArrowUp") ghostControls.z = 1;
+  if (e.key === "ArrowDown") ghostControls.z = -1;
+  if (e.key === "ArrowLeft") ghostControls.x = 1;
+  if (e.key === "ArrowRight") ghostControls.x = -1;
+  if (e.code === "PageUp") ghostControls.y = 1;
+  if (e.code === "PageDown") ghostControls.y = -1;
+
+  const activeEl = document.activeElement;
+  if ((e.code === "Space" || e.code === "Enter") && inputMode === "keyboard" && activeEl.tagName !== "BUTTON") {
+    e.preventDefault();
+    placeBlock(previewCube.position);
+  }
+
+  if (e.key === "Delete" && activeEl.tagName !== "BUTTON") {
+    removeBlock(previewCube.position);
+  }
+
+  if ("12345".includes(e.key)) {
+    selectedType = parseInt(e.key);
+    document.getElementById("typeName").textContent = types[selectedType].name;
+  }
+});
+document.addEventListener("keyup", e => {
+  if (["w", "s"].includes(e.key)) controls.forward = 0;
+  if (["a", "d"].includes(e.key)) controls.strafe = 0;
+  if (["q", "e"].includes(e.key)) controls.up = 0;
+
+  if (e.key === "ArrowUp" || e.key === "ArrowDown") ghostControls.z = 0;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") ghostControls.x = 0;
+  if (e.code === "PageUp" || e.code === "PageDown") ghostControls.y = 0;
+});
+
+document.addEventListener("mousedown", e => {
+  mouseDown = true;
+  if (e.target.tagName === "BUTTON") suppressClick = true;
+});
+document.addEventListener("mouseup", () => {
+  mouseDown = false;
+  setTimeout(() => suppressClick = false, 100);
+});
+document.addEventListener("mousemove", e => {
+  if (mouseDown) {
+    controls.yaw -= e.movementX * 0.002;
+    controls.pitch -= e.movementY * 0.002;
+    controls.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, controls.pitch));
+  }
+});
+
+function toggleInputMode() {
+  inputMode = inputMode === "mouse" ? "keyboard" : "mouse";
+  document.getElementById("modeButton").textContent = "Режим: " + (inputMode === "mouse" ? "Мышь" : "Клавиши");
+}
+
+const types = {
+  1: { name: "Стена", color: 0x888888 },
+  2: { name: "Пол", color: 0x999955 },
+  3: { name: "Дерево", color: 0x885522 },
+  4: { name: "Листва", color: 0x228822 },
+  5: { name: "Камень", color: 0x555555 },
+};
+
+let selectedType = 1;
+const placed = [];
+
+let previewCube, previewEdge;
+function createPreview() {
+  if (previewCube) scene.remove(previewCube);
+  if (previewEdge) scene.remove(previewEdge);
+  const geom = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+  previewCube = new THREE.Mesh(geom, mat);
+  previewEdge = new THREE.LineSegments(
+    new THREE.EdgesGeometry(geom),
+    new THREE.LineBasicMaterial({ color: 0xffff00 })
+  );
+  scene.add(previewCube);
+  scene.add(previewEdge);
+}
+createPreview();
+
+function placeBlock(position) {
+  const type = types[selectedType];
+  const block = new THREE.Mesh(
+    new THREE.BoxGeometry(blockSize, blockSize, blockSize),
+    new THREE.MeshStandardMaterial({ color: type.color })
+  );
+  block.position.copy(position).divideScalar(blockSize).floor().multiplyScalar(blockSize).addScalar(blockSize / 2);
+  scene.add(block);
+  placed.push({ x: block.position.x, y: block.position.y, z: block.position.z, type: selectedType, size: blockSize });
+  updateCodeOutput();
+}
+
+function removeBlock(position) {
+  let nearest = null;
+  let minDist = Infinity;
+
+  scene.traverse(obj => {
+    if (obj.isMesh && obj !== previewCube && obj !== previewEdge) {
+      const dist = obj.position.distanceTo(position);
+      if (dist < blockSize * 0.6 && dist < minDist) {
+        nearest = obj;
+        minDist = dist;
+      }
+    }
+  });
+
+  if (nearest) {
+    scene.remove(nearest);
+    const i = placed.findIndex(b =>
+      Math.abs(b.x - nearest.position.x) < 0.01 &&
+      Math.abs(b.y - nearest.position.y) < 0.01 &&
+      Math.abs(b.z - nearest.position.z) < 0.01
+    );
+    if (i >= 0) placed.splice(i, 1);
+    updateCodeOutput();
+  }
+}
+
+function updateCodeOutput() {
+  let code = '';
+  for (const b of placed) {
+    code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.size}, ${b.size}, ${b.size}); // ${types[b.type].name}\n`;
+  }
+  document.getElementById("codeOutput").textContent = code;
+}
+
+function copyCode() {
+  const code = document.getElementById("codeOutput").textContent;
+  navigator.clipboard.writeText(code).then(() => alert("Код скопирован!"));
+}
+
+function applySettings() {
+  gridSize = parseInt(document.getElementById("gridSizeInput").value);
+  blockSize = parseInt(document.getElementById("blockSizeInput").value);
+  scene.remove(gridHelper);
+  gridHelper = new THREE.GridHelper(gridSize, gridSize / blockSize);
+  scene.add(gridHelper);
+  createPreview();
+}
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+document.addEventListener("mousemove", e => {
+  mouse.x = (e.clientX / innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+});
+document.addEventListener("click", () => {
+  if (inputMode === "mouse" && !suppressClick) {
+    placeBlock(previewCube.position);
+  }
+});
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const delta = 16;
+  if (ghostMoveCooldown > 0) ghostMoveCooldown -= delta;
+
+  if (!mouseDown && (ghostControls.x || ghostControls.y || ghostControls.z)) {
+    if (ghostMoveCooldown <= 0) {
+      const move = new THREE.Vector3(
+        ghostControls.x * blockSize,
+        ghostControls.y * blockSize,
+        ghostControls.z * blockSize
+      );
+      previewCube.position.add(move);
+      previewEdge.position.add(move);
+      ghostMoveCooldown = 150;
+    }
+  }
+
+  const dir = new THREE.Vector3(Math.sin(controls.yaw), 0, Math.cos(controls.yaw)).normalize();
+  const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
+  camera.position.add(dir.clone().multiplyScalar(controls.forward * 0.3));
+  camera.position.add(right.clone().multiplyScalar(controls.strafe * 0.3));
+  camera.position.y += controls.up * 0.3;
+
+  const look = new THREE.Vector3(
+    Math.sin(controls.yaw) * Math.cos(controls.pitch),
+    Math.sin(controls.pitch),
+    Math.cos(controls.yaw) * Math.cos(controls.pitch)
+  );
+  camera.lookAt(camera.position.clone().add(look));
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersectPoint = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(10));
+  const snapped = intersectPoint.clone().divideScalar(blockSize).floor().multiplyScalar(blockSize).addScalar(blockSize / 2);
+  if (!mouseDown && ghostControls.x === 0 && ghostControls.y === 0 && ghostControls.z === 0 && inputMode === "mouse") {
+    previewCube.position.copy(snapped);
+    previewEdge.position.copy(snapped);
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+
+document.querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('mouseup', () => {
+    btn.blur();
+  });
+});
+</script>
+</body>
+</html>
