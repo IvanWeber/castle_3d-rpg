@@ -1,0 +1,1781 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>3D RPG — всё вместе</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+    #ui {
+      position: absolute; top: 10px; left: 10px;
+      background: rgba(0,0,0,0.5); color: white;
+      padding: 10px; font-family: sans-serif;
+      max-width: 400px; border-radius: 8px;
+    }
+    #dialogue { margin-top: 10px; }
+    .choice { padding: 4px 6px; }
+    .selected { background: rgba(255,255,255,0.3); }
+    #redFlash {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255,0,0,0.3);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+  </style>
+</head>
+<body>
+<div id="ui">
+  <div>Золото: <span id="gold">0</span></div>
+  <div>Инвентарь: <span id="inv">пусто</span></div>
+  <div id="health">❤️❤️❤️❤️❤️</div>
+  <div id="dialogue"></div>
+</div>
+<div id="redFlash"></div>
+<!-- Локальная копия Three.js (r158), чтобы не зависеть от CDN -->
+<script src="three.min.js"></script>
+<script>
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+  const obstacles = [];
+  function addObstacle(mesh) { obstacles.push(mesh); }
+
+  const renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.body.appendChild(renderer.domElement);
+
+  const light = new THREE.DirectionalLight(0xffffff, 1.5);
+  light.position.set(-10, 20, 10);
+  light.castShadow = true;
+  light.shadow.mapSize.set(2048, 2048);
+  light.shadow.camera.near = 0.5;
+  light.shadow.camera.far = 100;
+  light.shadow.camera.left = -50;
+  light.shadow.camera.right = 50;
+  light.shadow.camera.top = 50;
+  light.shadow.camera.bottom = -50;
+  scene.add(light);
+
+  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambient);
+
+  const goldEl = document.getElementById("gold");
+  const invEl = document.getElementById("inv");
+  const dialogueEl = document.getElementById("dialogue");
+  const healthEl = document.getElementById("health");
+  const redFlash = document.getElementById("redFlash");
+
+  const allDoors = [];
+
+  let removableMountain = null;
+
+  let gold = 0;
+  let inventory = [];
+  let isTalking = false;
+  let currentChoices = [];
+  let currentCallback = null;
+  let selectedIndex = 0;
+  let playerHealth = 5;
+  const maxHealth = 5;
+
+  let orangeHouseDoor = null;
+  let orangeHouseDoorPivot = null;
+  let doorState = "closed"; // closed | opening | open | closing
+
+
+
+
+  const loader = new THREE.TextureLoader();
+  const skyTextureBase64 = ``
+  const faceTextureBase64 = ``
+  const floorTextureBase64 = ``
+  const wallTextureBase64 = `` 
+  
+  loader.load(skyTextureBase64, texture => {
+    const skyGeo = new THREE.SphereGeometry(500, 32, 32);
+    const skyMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide });
+    const sky = new THREE.Mesh(skyGeo, skyMat);
+    scene.add(sky);
+  });
+
+  function createCharacter({ color = 0xaaaaaa, material = null, x = 0, z = 0 }) {
+  const group = new THREE.Group();
+  group.position.set(x, 0, z);
+  const mat = material || new THREE.MeshStandardMaterial({ color });
+
+  // Меньшее тело
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.4), mat);
+  body.position.y = 1.4;
+  body.castShadow = true;
+  group.add(body);
+
+  // Голова: цилиндр + уменьшенная полусфера
+  const headGroup = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.30, 6), mat);
+  base.position.y = 2.0;
+  base.castShadow = true;
+  headGroup.add(base);
+
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat);
+  cap.position.y = 2.10;
+  cap.castShadow = true;
+  headGroup.add(cap);
+  group.add(headGroup);
+
+  // Лицо: изогнутая по цилиндру текстура
+  loader.load(faceTextureBase64, texture => {
+    const radius = 0.22;
+    const height = 0.3;
+    const angle = THREE.MathUtils.degToRad(150); // угол дуги
+    const segments = 16;
+
+    const faceGeo = new THREE.CylinderGeometry(radius, radius, height, segments, 1, true, -angle / 2, angle);
+    const faceMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+    const faceMesh = new THREE.Mesh(faceGeo, faceMat);
+
+    faceMesh.rotation.y = 0; // Повернуто лицом ВПЕРЁД
+    faceMesh.position.set(0, 1.95, 0); // выше: 1.85 + 0.15
+    headGroup.add(faceMesh);
+  });
+
+
+
+
+  function createArm(side) {
+    const shoulder = new THREE.Group();
+    const upper = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), mat);
+    upper.position.y = -0.2;
+    shoulder.add(upper);
+
+    const elbow = new THREE.Group();
+    elbow.position.y = -0.4;
+    const forearm = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), mat);
+    forearm.position.y = -0.2;
+    elbow.add(forearm);
+
+    const wrist = new THREE.Group();
+    wrist.position.y = -0.4;
+    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.18), mat);
+    hand.position.y = -0.09;
+    wrist.add(hand);
+
+    elbow.add(wrist);
+    shoulder.add(elbow);
+
+    // Подняты выше (тело ниже)
+    shoulder.position.set(side * 0.45, 1.8, 0);
+    group.add(shoulder);
+
+    return { shoulder, elbow, wrist };
+  }
+
+  function createLeg(side) {
+    const hip = new THREE.Group();
+    const thigh = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.5, 0.25), mat);
+    thigh.position.y = -0.25;
+    hip.add(thigh);
+
+    const knee = new THREE.Group();
+    knee.position.y = -0.5;
+    const shin = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.2), mat);
+    shin.position.y = -0.25;
+    knee.add(shin);
+
+    const ankle = new THREE.Group();
+    ankle.position.y = -0.5;
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.15, 0.4), mat);
+    foot.position.set(0, -0.075, 0.1);
+    ankle.add(foot);
+
+    knee.add(ankle);
+    hip.add(knee);
+    hip.position.set(side * 0.22, 0.9, 0); // ниже, т.к. тело ниже
+    group.add(hip);
+
+    return { hip, knee, ankle };
+  }
+
+  const rightArm = createArm(-1);
+  const leftArm = createArm(1);
+  const rightLeg = createLeg(-1);
+  const leftLeg = createLeg(1);
+
+  return {
+    group,
+    body,
+    headGroup,
+    rightArm: rightArm.shoulder,
+    leftArm: leftArm.shoulder,
+    rightLeg: rightLeg.hip,
+    leftLeg: leftLeg.hip,
+    rightElbow: rightArm.elbow,
+    leftElbow: leftArm.elbow,
+    rightKnee: rightLeg.knee,
+    leftKnee: leftLeg.knee,
+    rightWrist: rightArm.wrist,
+    leftWrist: leftArm.wrist
+  };
+
+
+
+}
+
+
+
+  const keys = {};
+  document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+  document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+  let yaw = 0, pitch = 0;
+  let walkCycle = 0;
+
+  document.body.addEventListener("click", () => {
+    if (document.pointerLockElement !== renderer.domElement)
+      renderer.domElement.requestPointerLock();
+  });
+  document.addEventListener("mousemove", e => {
+    if (document.pointerLockElement === renderer.domElement) {
+      yaw -= e.movementX * 0.002;
+      pitch += e.movementY * 0.002;
+      pitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch));
+    }
+  });
+
+  function updateUI() {
+    goldEl.textContent = gold;
+    invEl.textContent = inventory.join(", ") || "пусто";
+  }
+
+  function updateHealthUI() {
+    const hearts = "❤️".repeat(playerHealth) + "🖤".repeat(maxHealth - playerHealth);
+    healthEl.textContent = hearts;
+  }
+
+  const matPlayer = new THREE.MeshStandardMaterial({ color: 0x4444ff });
+  const playerParts = createCharacter({ material: matPlayer });
+  const player = playerParts.group;
+  const playerRightArm = playerParts.rightArm;
+  const playerLeftArm = playerParts.leftArm;
+  const playerRightLeg = playerParts.rightLeg;
+  const playerLeftLeg = playerParts.leftLeg;
+  player.position.set(0, 0, 0);
+  scene.add(player);
+
+  const matSword = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+  const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.2), matSword); // Меч короче
+
+  sword.castShadow = true;
+  sword.visible = false;
+
+  const matClaw = new THREE.MeshStandardMaterial({ color: 0xff00ff });
+  const claw = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), matClaw);
+  claw.castShadow = true;
+  claw.visible = false;
+
+  const matFist = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const fist = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), matFist);
+  fist.castShadow = true;
+  fist.visible = true;
+
+  const rightHand = playerParts.rightWrist.children[0]; // это точно hand
+  rightHand.add(sword);
+  rightHand.add(claw);
+  rightHand.add(fist);
+
+  
+
+
+  const strongSword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.2), matSword);
+  strongSword.castShadow = true;
+  strongSword.visible = false;
+  rightHand.add(strongSword);
+  strongSword.position.set(0, -0.3, 0.2);
+  strongSword.rotation.x = Math.PI / 2;
+
+
+  // Расположение — "торчит из кисти под углом 90°"
+  sword.position.set(0, -0.3, 0.2); // ближе к кисти
+  sword.rotation.x = Math.PI / 2;
+
+  claw.position.set(0, -0.2, 0.15);
+  claw.rotation.x = Math.PI / 2;
+
+
+  fist.position.set(0, -0.6, 0);
+
+
+  let currentWeapon = "Меч";
+
+  sword.visible = true;
+  strongSword.visible = false;
+  claw.visible = false;
+  fist.visible = false;
+
+  function showDialogue(text, choices = [], callback = null) {
+    isTalking = true;
+    selectedIndex = 0;
+    currentChoices = choices;
+    currentCallback = callback;
+    dialogueEl.innerHTML = `<div>${text}</div>` + choices.map((c, i) =>
+      `<div class="choice${i === 0 ? ' selected' : ''}">${c}</div>`).join("");
+  }
+
+  function updateChoicesUI() {
+    const elems = dialogueEl.querySelectorAll(".choice");
+    elems.forEach((el, i) => {
+      el.className = "choice" + (i === selectedIndex ? " selected" : "");
+    });
+  }
+
+  function closeDialogue() {
+    isTalking = false;
+    currentChoices = [];
+    currentCallback = null;
+    dialogueEl.innerHTML = "";
+  }
+
+  document.addEventListener("keydown", e => {
+    if (isTalking) {
+      if (["w", "a", "arrowup"].includes(e.key.toLowerCase())) {
+        selectedIndex = (selectedIndex - 1 + currentChoices.length) % currentChoices.length;
+        updateChoicesUI();
+      }
+      if (["s", "d", "arrowdown"].includes(e.key.toLowerCase())) {
+        selectedIndex = (selectedIndex + 1) % currentChoices.length;
+        updateChoicesUI();
+      }
+      if (e.key === "Enter") {
+        const choice = currentChoices[selectedIndex];
+        if (currentCallback) currentCallback(choice);
+        closeDialogue();
+      }
+    } else {
+      if (e.key.toLowerCase() === "e") {
+        const npc = npcs.find(n => n.group.position.distanceTo(player.position) < 2.5);
+        if (npc) {
+          npc.talk();
+        } else {
+          const doorEntry = allDoors.find(d =>
+            player.position.distanceTo(d.pivot.getWorldPosition(new THREE.Vector3())) < 4
+          );
+          if (doorEntry) {
+            if (doorEntry.state === "closed") doorEntry.state = "opening";
+            else if (doorEntry.state === "open") doorEntry.state = "closing";
+          }else if (dragonQuestGiven && !mountainPassOpened && removableMountain && player.position.distanceTo(removableMountain.position) < 6) {
+            scene.remove(removableMountain); // убрать гору из сцены
+            const index = obstacles.indexOf(removableMountain);
+            if (index !== -1) obstacles.splice(index, 1); // убрать из препятствий
+            mountainPassOpened = true;
+          }
+
+        }
+
+      }
+
+      if (e.key.toLowerCase() === "i") {
+        if (!isTalking) {
+          const choices = ["Меч"];
+          if (inventory.includes("Коготь")) choices.push("Коготь");
+          if (inventory.includes("Меч+")) choices.push("Меч+");
+          showDialogue("Выберите оружие:", choices, choice => {
+            currentWeapon = choice;
+            sword.visible = (choice === "Меч");
+            strongSword.visible = (choice === "Меч+");
+            claw.visible = (choice === "Коготь");
+            fist.visible = (choice === "Кулак");
+          });
+        }
+      }
+
+      if (e.key === " " && isOnGround) {
+        velocityY = jumpStrength;
+        isOnGround = false;
+      }
+    }
+  });
+
+
+
+  let gamepadIndex = null;
+  let gpPrevButtons = [];
+
+  window.addEventListener("gamepadconnected", (e) => {
+    gamepadIndex = e.gamepad.index;
+    console.log("Геймпад подключен:", e.gamepad.id);
+  });
+
+  function processGamepadInput() {
+  const gp = navigator.getGamepads()[gamepadIndex];
+  if (!gp) return;
+
+  const lx = gp.axes[0];
+  const ly = gp.axes[1];
+  const rx = Math.abs(gp.axes[2]) > 0.1 ? gp.axes[2] : 0;//если ось слегка смещена, то игнорируем её
+  const ry = Math.abs(gp.axes[3]) > 0.1 ? gp.axes[3] : 0;//если ось слегка смещена, то игнорируем её
+
+  keys["w"] = ly < -0.3;
+  keys["s"] = ly > 0.3;
+  keys["a"] = lx < -0.3;
+  keys["d"] = lx > 0.3;
+
+  yaw -= rx * 0.05;
+  pitch += ry * 0.05;
+  pitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch));
+
+  const buttons = gp.buttons;
+
+  // Взаимодействие — Y (3)
+  if (buttons[3].pressed && !gpPrevButtons[3]) {
+    const npc = npcs.find(n => n.group.position.distanceTo(player.position) < 2.5);
+    if (npc) {
+      npc.talk();
+    } else if (player.position.distanceTo(orangeHouseDoor.getWorldPosition(new THREE.Vector3())) < 4) {
+      if (doorState === "closed") doorState = "opening";
+      else if (doorState === "open") doorState = "closing";
+    }
+
+  }
+
+
+  // Открытие инвентаря — X (2)
+  if (buttons[2].pressed && !gpPrevButtons[2] && !isTalking) {
+    const choices = ["Меч"];
+    if (inventory.includes("Коготь")) choices.push("Коготь");
+    if (inventory.includes("Меч+")) choices.push("Меч+");
+    showDialogue("Выберите оружие:", choices, choice => {
+      currentWeapon = choice;
+      sword.visible = (choice === "Меч");
+      strongSword.visible = (choice === "Меч+");
+      claw.visible = (choice === "Коготь");
+      fist.visible = (choice === "Кулак");
+    });
+  }
+
+
+  /// Навигация в диалогах — D-pad
+  if (isTalking) {
+    if (buttons[12].pressed && !gpPrevButtons[12]) {
+      selectedIndex = (selectedIndex - 1 + currentChoices.length) % currentChoices.length;
+      updateChoicesUI();
+    }
+    if (buttons[13].pressed && !gpPrevButtons[13]) {
+      selectedIndex = (selectedIndex + 1) % currentChoices.length;
+      updateChoicesUI();
+    }
+    // Подтвердить — A (0)
+    if (buttons[0].pressed && !gpPrevButtons[0]) {
+      const choice = currentChoices[selectedIndex];
+      if (currentCallback) currentCallback(choice);
+      closeDialogue();
+      blockJumpAButton = true; // 🔒 Заблокировать прыжок в этом кадре
+    }
+  }
+
+
+  // Атака — RB (5)
+  if (buttons[5].pressed && !gpPrevButtons[5]) {
+    if (!isAttacking && !isTalking) {
+      isAttacking = true;
+      attackTimer = 0.2;
+      attackAnimTimer = 0.2;
+    }
+  }
+
+  // Выбор в диалоге — A (0) или X (0)
+  if (isTalking && buttons[0].pressed && !gpPrevButtons[0]) {
+    const choice = currentChoices[selectedIndex];
+    if (currentCallback) currentCallback(choice);
+    closeDialogue();
+  }
+
+  // Выбор в диалоге — A/X (0)
+  if (isTalking && buttons[0].pressed && !gpPrevButtons[0]) {
+    const choice = currentChoices[selectedIndex];
+    if (currentCallback) currentCallback(choice);
+    closeDialogue();
+    blockJumpAButton = true; // ⛔ блокируем прыжок на один цикл
+  }
+
+  // Прыжок — A (0), только если не заблокирован
+  if (introOverlay && document.body.contains(introOverlay)) return; // ⛔ пока интро — не прыгаем
+
+  if (!isTalking && !blockJumpAButton && buttons[0].pressed && !gpPrevButtons[0]) {
+    if (isOnGround) {
+      velocityY = jumpStrength;
+      isOnGround = false;
+    }
+  }
+
+
+
+  gpPrevButtons = buttons.map(b => b.pressed);
+}
+
+
+
+  const npcs = [];
+  let questGiven = false;
+
+  let eastQuestGiven = false;
+  let eastQuestComplete = false;
+  let eastRewardGiven = false;
+  let bandits = [];
+
+  let questComplete = false;
+  let rewardGiven = false;
+  let swordSold = false;
+
+  let dragonQuestGiven = false;
+  let dragonDefeated = false;
+  let mountainPassOpened = false;
+
+
+  function createNPC(x, z, color, talkFn) {
+    const parts = createCharacter({ color, x, z });
+    const npc = parts.group;
+    npc.talk = talkFn;
+    npc.castShadow = true;
+    scene.add(npc);
+    const npcObj = { group: npc, talk: talkFn };
+    npcs.push(npcObj);
+    return npcObj;
+  }
+
+
+  const yellowNPC = createNPC(-5, 0, 0xffff00, () => {
+    if (!questGiven) {
+      showDialogue("Добро пожаловать. Мы просили помощи. В западном лесу орудуют четыре волка. Если вы уничтожите их, я выдам вам рекомендательное письмо для замковых стражников.", ["Принять", "Позже"], choice => {
+        if (choice === "Принять") questGiven = true;
+      });
+    } else if (questComplete && !rewardGiven) {
+      showDialogue("Хорошая работа. Вот ваше вознаграждение и рекомендательное письмо. Предъявите его стражникам у ворот замка. Можете приобрести меч получше у Зигмунда в лавке.", ["Принято"], () => {
+        gold += 30;
+        inventory.push("Рекомендация");
+        rewardGiven = true;
+        updateUI();
+      });
+    } else if (questComplete && rewardGiven) {
+      showDialogue("Вы уже всё сделали, мессир. Пусть удача будет с вами в стенах замка.");
+    } else {
+      showDialogue("Не забудьте: западный лес, четыре волка.");
+    }
+  });
+
+  yellowNPC.group.rotation.y = Math.PI;
+
+
+  const orangeNPC = createNPC(10, -15, 0xff8800, () => {
+    if (!swordSold) {
+      showDialogue("Настоящий меч. Длиннее, тяжелее, эффективнее. Цена — 30 золотых.", ["Купить", "Нет"], choice => {
+        if (choice === "Купить" && gold >= 30) {
+          gold -= 30;
+          inventory.push("Меч+");
+          swordSold = true;
+          updateUI();
+        } else if (choice === "Купить") {
+          showDialogue("У вас недостаточно золота.");
+        }
+      });
+    } else {
+      showDialogue("Я продал последний меч. Больше таких не будет.");
+    }
+  });
+
+  // Добавляем домик для оранжевого
+  const orangeHouse = createOrangeHouse(10, -15);
+  const orangeHouse2 = createOrangeHouse(25, -25);
+  orangeHouseDoor = orangeHouse.door;
+  orangeHouseDoorPivot = orangeHouse.doorPivot;
+
+
+
+
+  createNPC(0, 35, 0x000000, () => {
+    if (!inventory.includes("Философский ключ")) {
+      showDialogue("У замка есть интересный секрет. Могу поделиться.", ["Слушаю", "Мне уже достаточно загадок"], choice => {});
+    } else {
+      showDialogue("Удивительно. Вы нашли ключ, который не открывает ничего.", ["...спасибо?"], () => {});
+    }
+  });
+
+
+  const guardNPC = createNPC(0, 8, 0x444444, () => {
+    if (!inventory.includes("Рекомендация")) {
+      showDialogue("Вход в замок закрыт. Без рекомендации не пущу.", ["Понятно"], () => {});
+      return;
+    }
+
+    if (!eastQuestGiven) {
+      showDialogue("Вы получили рекомендацию? Хорошо. Но есть ещё просьба — восточный лес страдает от разбойников. Их трое. Разберитесь с ними, и я открою ворота.", ["Принять", "Позже"], choice => {
+        if (choice === "Принять") eastQuestGiven = true;
+      });
+    } else if (eastQuestComplete && !eastRewardGiven) {
+      showDialogue("Вы победили разбойников? Отлично. Открываю ворота.", ["Спасибо"], () => {
+        gateOpen = true;
+        eastRewardGiven = true;
+        updateUI();
+      });
+    } else if (eastRewardGiven) {
+      showDialogue("Проход открыт. Удачи вам внутри.");
+    } else {
+      showDialogue("Разбойники ещё не побеждены. Их трое, восточный лес.");
+    }
+  });
+
+  // Повернуть стражника лицом к игроку (180 градусов)
+  guardNPC.group.rotation.y = Math.PI;
+
+
+  const castleNPC = createNPC(0, 25, 0x55ccff, () => {
+    if (!dragonQuestGiven) {
+      showDialogue("Вы прибыли вовремя. Последнее испытание — дракон за горным хребтом. Уничтожьте его. Только тогда ваша миссия будет завершена.", ["Принять", "Позже"], choice => {
+
+        if (choice === "Принять") {
+          dragonQuestGiven = true;
+          updateUI();
+        }
+      });
+    } else if (!dragonDefeated) {
+      showDialogue("Если вы ранены — отдохните в замке. Затем продолжите путь к дракону.", ["Отдохнуть"], choice => {
+        if (choice === "Отдохнуть") {
+          playerHealth = maxHealth;
+          updateHealthUI();
+          showDialogue("Ты отдохнул. Жизни восстановлены.");
+        }
+      });
+    } else {
+      showDialogue("Ты победил дракона. Это нечто. Наслаждайся победой.");
+    }
+  });
+
+  castleNPC.group.rotation.y = Math.PI;
+
+
+
+
+
+
+  const greenEnemy = createEnemy(15, 35, 0x00ff00);
+    buildWall(15, 3, 35, 6, 6, 6);
+
+    function createOrangeHouse(x, z) {
+    const houseMat = new THREE.MeshStandardMaterial({ color: 0x996633 });
+    const house = new THREE.Group();
+
+    const width = 10;
+    const depth = 10;
+
+    const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, depth), houseMat);
+    wallLeft.position.set(-width / 2 + 0.25, 2, 0);
+    wallLeft.castShadow = true;
+    house.add(wallLeft); addObstacle(wallLeft);
+
+    const wallRight = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, depth), houseMat);
+    wallRight.position.set(width / 2 - 0.25, 2, 0);
+    wallRight.castShadow = true;
+    house.add(wallRight); addObstacle(wallRight);
+
+    const wallBack = new THREE.Mesh(new THREE.BoxGeometry(width, 4, 0.5), houseMat);
+    wallBack.position.set(0, 2, -depth / 2 + 0.25);
+    wallBack.castShadow = true;
+    house.add(wallBack); addObstacle(wallBack);
+
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(width, 0.5, depth), houseMat);
+    roof.position.set(0, 4.25, 0);
+    roof.castShadow = true;
+    house.add(roof); addObstacle(roof);
+
+    const doorWallLeft = new THREE.Mesh(new THREE.BoxGeometry(1, 3, 0.2), houseMat);
+    doorWallLeft.position.set(-2, 1.5, depth / 2 + 0.1);
+    house.add(doorWallLeft); addObstacle(doorWallLeft);
+
+    const doorWallRight = new THREE.Mesh(new THREE.BoxGeometry(1, 3, 0.2), houseMat);
+    doorWallRight.position.set(2, 1.5, depth / 2 + 0.1);
+    house.add(doorWallRight); addObstacle(doorWallRight);
+
+    const doorTop = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 0.2), houseMat);
+    doorTop.position.set(0, 3.75, depth / 2 + 0.1);
+    house.add(doorTop); addObstacle(doorTop);
+
+    const frontLeft = new THREE.Mesh(new THREE.BoxGeometry(3.5, 6, 0.2), houseMat);
+    frontLeft.position.set(-3.25, 1.5, depth / 2 + 0.1);
+    house.add(frontLeft); addObstacle(frontLeft);
+
+    const frontRight = new THREE.Mesh(new THREE.BoxGeometry(3.5, 6, 0.2), houseMat);
+    frontRight.position.set(3.25, 1.5, depth / 2 + 0.1);
+    house.add(frontRight); addObstacle(frontRight);
+
+    const doorPivot = new THREE.Group();
+    doorPivot.position.set(-1.5, 0, depth / 2 + 0.1);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 0.2), new THREE.MeshStandardMaterial({ color: 0x552200 }));
+    door.position.set(1.5, 1.5, 0);
+    door.castShadow = true;
+    doorPivot.add(door);
+    house.add(doorPivot);
+    addObstacle(door);
+
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 0.5), new THREE.MeshStandardMaterial({ color: 0x443322 }));
+    counter.position.set(0, 0.5, 1);
+    counter.castShadow = true;
+    house.add(counter); addObstacle(counter);
+
+    house.position.set(x, 0, z);
+    scene.add(house);
+
+    allDoors.push({ door, pivot: doorPivot, state: "closed" });
+
+    return house;
+  }
+
+
+
+
+
+
+  function createHealthBar() {
+    const bar = document.createElement("div");
+    bar.style.position = "absolute";
+    bar.style.width = "50px";
+    bar.style.height = "6px";
+    bar.style.background = "rgba(255,0,0,0.5)";
+    bar.style.border = "1px solid red";
+    bar.style.borderRadius = "3px";
+    bar.style.overflow = "hidden";
+    bar.style.display = "none";
+    const fill = document.createElement("div");
+    fill.style.height = "100%";
+    fill.style.width = "100%";
+    fill.style.background = "lime";
+    bar.appendChild(fill);
+    document.body.appendChild(bar);
+    return { container: bar, fill: fill };
+  }
+
+  function createEnemy(x, z, color) {
+    const parts = createCharacter({ color, x, z });
+    const enemy = parts.group;
+    enemy.castShadow = true;
+    enemy.health = 3;
+    enemy.maxHealth = 3;
+    enemy.healthBar = createHealthBar();
+    enemy.alive = true;
+    enemy.alreadyChasing = false;
+    scene.add(enemy);
+    return enemy;
+  }
+
+
+  function createWolf(x, z) {
+    const mat = new THREE.MeshStandardMaterial({ color: 0x444444 });
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+
+    // Тело вдоль оси Z (вперёд-назад)
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 1.8), mat);
+    body.position.y = 0.6;
+    body.castShadow = true;
+    group.add(body);
+
+    // Голова — спереди
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mat);
+    head.position.set(0, 0.75, 1);
+    head.castShadow = true;
+    group.add(head);
+
+    // 4 ноги (позиции: по краям тела)
+    const legPositions = [
+      [-0.2, 0.3, -0.6],
+      [0.2, 0.3, -0.6],
+      [-0.2, 0.3, 0.6],
+      [0.2, 0.3, 0.6],
+    ];
+    for (const [x, y, z] of legPositions) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.6, 0.15), mat);
+      leg.position.set(x, y, z);
+      leg.castShadow = true;
+      group.add(leg);
+    }
+
+    group.castShadow = true;
+    scene.add(group);
+
+    const enemy = group;
+    enemy.health = 3;
+    enemy.maxHealth = 3;
+    enemy.healthBar = createHealthBar();
+    enemy.alive = true;
+    enemy.path = [];
+    enemy.pathIndex = 0;
+    return enemy;
+  }
+
+
+
+
+
+  const enemyInside = null;
+
+  let velocityY = 0;
+  let isOnGround = false;
+  const gravity = -0.02;
+  const jumpStrength = 0.35;
+  let isAttacking = false;
+
+  let blockJumpAButton = false;
+  let blockJumpFrames = 0;
+
+
+  let attackTimer = 0;
+
+  let attackAnimTimer = 0;
+
+  document.addEventListener("mousedown", e => {
+    if (!isTalking && e.button === 0) {
+      if (!isAttacking) {
+        isAttacking = true;
+        attackTimer = 0.2;
+        attackAnimTimer = 0.2; // ← ДОБАВЛЕНО
+      }
+    }
+  });
+
+  function updateHealthBar(enemyObj) {
+    if (!enemyObj.healthBar) return;
+    const vector = enemyObj.position.clone();
+    vector.y += 2.5;
+    vector.project(camera);
+    const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+    enemyObj.healthBar.container.style.left = `${x - 25}px`;
+    enemyObj.healthBar.container.style.top = `${y - 30}px`;
+    const ratio = enemyObj.health / enemyObj.maxHealth;
+    enemyObj.healthBar.fill.style.width = `${Math.max(0, ratio * 100)}%`;
+    if (player.position.distanceTo(enemyObj.position) < 5) {
+      enemyObj.healthBar.container.style.display = "block";
+    } else {
+      enemyObj.healthBar.container.style.display = "none";
+    }
+  }
+
+  function takeDamage() {
+    if (playerHealth > 0) {
+      playerHealth--;
+      updateHealthUI();
+      redFlash.style.opacity = 1;
+      setTimeout(() => redFlash.style.opacity = 0, 150);
+      if (playerHealth <= 0) {
+        showDialogue("Вы погибли! Перезагрузите страницу.", []);
+      }
+    }
+  }
+
+  function chase(enemyObj) {
+    const dist = player.position.distanceTo(enemyObj.position);
+    if (dist < 5 && dist > 1.5) {
+      const dir = player.position.clone().sub(enemyObj.position).normalize();
+      enemyObj.position.add(dir.multiplyScalar(0.05));
+
+      // Поворот врага лицом к игроку
+      enemyObj.lookAt(player.position.clone().setY(enemyObj.position.y));
+
+      if (!enemyObj.alreadyChasing) {
+        enemyObj.alreadyChasing = true;
+        enemyObj.healthBar.container.style.display = "block";
+      }
+    }
+  }
+  
+  function aabb(boxA, boxB) {
+    return (
+      boxA.max.x > boxB.min.x && boxA.min.x < boxB.max.x &&
+      boxA.max.y > boxB.min.y && boxA.min.y < boxB.max.y &&
+      boxA.max.z > boxB.min.z && boxA.min.z < boxB.max.z
+    );
+  }
+
+
+
+  const matFloor = new THREE.MeshStandardMaterial({});
+  loader.load(floorTextureBase64, texture => {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(50, 50); // Повтор по X и Z
+    matFloor.map = texture;
+    matFloor.needsUpdate = true;
+  });
+
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), matFloor);
+  floor.position.y = -0.5;
+  floor.receiveShadow = true;
+  scene.add(floor);
+  addObstacle(floor);
+
+  const matPlatform = new THREE.MeshStandardMaterial({ color: 0x8888ff });
+  // const platform = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 6), matPlatform);
+  // platform.position.set(5, 3, 5);
+  // platform.receiveShadow = true;
+  // scene.add(platform);
+  // addObstacle(platform);
+
+  
+  // const platform2 = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 6), matPlatform);
+  // platform2.position.set(10, 2, 5);
+  // platform2.receiveShadow = true;
+  // scene.add(platform2);
+  // addObstacle(platform2);
+
+
+
+  buildWall(9, 11, 19, 2, 2, 2); // Дерево
+buildWall(9, 11, 19, 2, 2, 2); // Пол
+buildWall(9, 11, 19, 2, 2, 2); // Пол
+buildWall(9, 11, 19, 2, 2, 2); // Листва
+buildWall(7, 3, 21, 2, 2, 2); // Листва
+buildWall(7, 3, 23, 2, 2, 2); // Листва
+buildWall(5, 3, 23, 2, 2, 2); // Листва
+buildWall(3, 3, 23, 2, 2, 2); // Листва
+buildWall(1, 3, 23, 2, 2, 2); // Листва
+buildWall(-1, 3, 23, 2, 2, 2); // Листва
+buildWall(-3, 3, 23, 2, 2, 2); // Листва
+buildWall(-5, 3, 23, 2, 2, 2); // Листва
+buildWall(-7, 3, 23, 2, 2, 2); // Листва
+buildWall(-9, 3, 23, 2, 2, 2); // Листва
+buildWall(-9, 3, 21, 2, 2, 2); // Листва
+buildWall(-7, 3, 21, 2, 2, 2); // Листва
+buildWall(-5, 3, 21, 2, 2, 2); // Листва
+buildWall(-3, 3, 21, 2, 2, 2); // Листва
+buildWall(-1, 3, 21, 2, 2, 2); // Листва
+buildWall(1, 3, 21, 2, 2, 2); // Листва
+buildWall(3, 3, 21, 2, 2, 2); // Листва
+buildWall(5, 3, 21, 2, 2, 2); // Листва
+buildWall(7, 3, 19, 2, 2, 2); // Листва
+buildWall(5, 3, 19, 2, 2, 2); // Листва
+buildWall(3, 3, 19, 2, 2, 2); // Листва
+buildWall(1, 3, 19, 2, 2, 2); // Листва
+buildWall(-1, 3, 19, 2, 2, 2); // Листва
+buildWall(-1, 3, 19, 2, 2, 2); // Листва
+buildWall(-3, 3, 19, 2, 2, 2); // Листва
+buildWall(-5, 3, 19, 2, 2, 2); // Листва
+buildWall(-7, 3, 19, 2, 2, 2); // Листва
+buildWall(-9, 3, 19, 2, 2, 2); // Листва
+buildWall(-9, 3, 17, 2, 2, 2); // Листва
+buildWall(-7, 3, 17, 2, 2, 2); // Листва
+buildWall(-5, 3, 17, 2, 2, 2); // Листва
+buildWall(-3, 3, 17, 2, 2, 2); // Листва
+buildWall(-1, 3, 17, 2, 2, 2); // Листва
+buildWall(1, 3, 17, 2, 2, 2); // Листва
+buildWall(3, 3, 17, 2, 2, 2); // Листва
+buildWall(5, 3, 17, 2, 2, 2); // Листва
+buildWall(7, 3, 17, 2, 2, 2); // Листва
+// setPlayerPosition(1, 7, 19);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  let gate = null;
+  let gateOpen = false;
+  function buildWall(x, y, z, w, h, d) {
+    const wallMat = new THREE.MeshStandardMaterial({});
+    loader.load(wallTextureBase64, texture => {
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(w / 2, h / 2);
+      wallMat.map = texture;
+      wallMat.needsUpdate = true;
+    });
+
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+    wall.position.set(x, y, z);
+    wall.castShadow = true;
+    wall.receiveShadow = true;
+    scene.add(wall);
+    addObstacle(wall);
+  }
+
+
+  function buildCastle() {
+    buildWall(0, 3, 30, 20, 6, 1);
+    buildWall(-10, 3, 20, 1, 6, 20);
+    buildWall(10, 3, 20, 1, 6, 20);
+    buildWall(-6, 3, 10, 10, 6, 1);
+    buildWall(6, 3, 10, 10, 6, 1);
+    gate = new THREE.Mesh(new THREE.BoxGeometry(2, 5, 1), new THREE.MeshStandardMaterial({ color: 0x552200 }));
+    gate.position.set(0, 2.5, 10);
+    gate.castShadow = true;
+    gate.receiveShadow = true;
+    scene.add(gate);
+    addObstacle(gate);
+  }
+
+  buildCastle();
+
+  function buildMountains() {
+    const mountainMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
+
+    // Центральная (удаляемая) красная гора
+    const height = 10;
+    removableMountain = new THREE.Mesh(
+      new THREE.BoxGeometry(4, height, 4),
+      mountainMat.clone()
+    );
+    removableMountain.position.set(0, height / 2, -50);
+    removableMountain.castShadow = true;
+    removableMountain.receiveShadow = true;
+    removableMountain.material.color.set(0xff0000);
+    scene.add(removableMountain);
+    addObstacle(removableMountain);
+
+    // Левый и правый примыкающие горы
+    const leftMountain = new THREE.Mesh(new THREE.BoxGeometry(4, 10, 4), mountainMat);
+    leftMountain.position.set(-4, 5, -50);
+    leftMountain.castShadow = true;
+    leftMountain.receiveShadow = true;
+    scene.add(leftMountain);
+    addObstacle(leftMountain);
+
+    const rightMountain = new THREE.Mesh(new THREE.BoxGeometry(4, 10, 4), mountainMat);
+    rightMountain.position.set(4, 5, -50);
+    rightMountain.castShadow = true;
+    rightMountain.receiveShadow = true;
+    scene.add(rightMountain);
+    addObstacle(rightMountain);
+
+    // Дополнительные половинки в зазоры между крайними и основной грядой
+    const leftHalf = new THREE.Mesh(new THREE.BoxGeometry(4, 10, 4), mountainMat);
+    leftHalf.position.set(-6, 5, -50);
+    leftHalf.castShadow = true;
+    leftHalf.receiveShadow = true;
+    scene.add(leftHalf);
+    addObstacle(leftHalf);
+
+    const rightHalf = new THREE.Mesh(new THREE.BoxGeometry(4, 10, 4), mountainMat);
+    rightHalf.position.set(6, 5, -50);
+    rightHalf.castShadow = true;
+    rightHalf.receiveShadow = true;
+    scene.add(rightHalf);
+    addObstacle(rightHalf);
+
+    // Остальная гряда — пропускаем центральную зону шириной 16
+    for (let x = -50; x <= 50; x += 4) {
+      if (x >= -8 && x <= 8) continue;
+      const h = 6 + Math.random() * 6;
+      const mountain = new THREE.Mesh(new THREE.BoxGeometry(4, h, 4), mountainMat);
+      mountain.position.set(x, h / 2, -50);
+      mountain.castShadow = true;
+      mountain.receiveShadow = true;
+      scene.add(mountain);
+      addObstacle(mountain);
+    }
+  }
+
+
+
+  buildMountains();
+
+  // Платформа земли за горами (появляется сразу, но визуально скрыта горами)
+  const backArea = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 50), matFloor);
+  backArea.scale.z = 1.2; // удлиним немного по глубине
+  backArea.position.set(0, -0.5, -80); // дальше за -50
+  backArea.receiveShadow = true;
+  scene.add(backArea);
+  addObstacle(backArea);
+
+
+  function createTree(x, z) {
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+    const leavesMat = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 2, 8), trunkMat);
+    trunk.position.set(x, 1, z);
+    trunk.castShadow = true;
+    trunk.receiveShadow = true;
+    scene.add(trunk);
+    addObstacle(trunk);
+
+    const crown = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 12), leavesMat);
+    crown.position.set(x, 3, z);
+    crown.castShadow = true;
+    crown.receiveShadow = true;
+    scene.add(crown);
+  }
+
+
+
+
+  // Лес в западной части карты
+  for (let i = 0; i < 15; i++) {
+    const x = -45 + Math.random() * 30;
+    const z = -15 + Math.random() * 30;
+    createTree(x, z);
+  }
+
+  // Лес в восточной части карты — возле разбойников
+  for (let i = 0; i < 12; i++) {
+    const x = 30 + Math.random() * 20;
+    const z = -15 + Math.random() * 20;
+    createTree(x, z);
+  }
+
+
+  // Три дерева на разных позициях
+  createTree(8, -5);
+  createTree(-5, 8);
+  createTree(15, 18);
+
+
+
+
+  function getPlayerBox(pos) {
+    return new THREE.Box3().setFromCenterAndSize(pos.clone().add(new THREE.Vector3(0, 1, 0)), new THREE.Vector3(1, 2, 1));
+  }
+
+  function collides(pos) {
+    const box = getPlayerBox(pos);
+    return obstacles.some(obj => {
+      const other = new THREE.Box3().setFromObject(obj);
+      return aabb(box, other);
+    });
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    // Сбрасываем блокировку прыжка с кнопки A только один раз за кадр
+    if (blockJumpFrames > 0) {
+      blockJumpAButton = true;
+      blockJumpFrames--;
+    } else {
+      blockJumpAButton = false;
+    }
+
+
+    if (gamepadIndex !== null) {
+      processGamepadInput();
+    }
+
+    const dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
+    const speed = 0.15;
+
+    let moveX = 0, moveZ = 0;
+    if (keys["w"]) { moveX += dir.x; moveZ += dir.z; }
+    if (keys["s"]) { moveX -= dir.x; moveZ -= dir.z; }
+    if (keys["a"]) { moveX -= right.x; moveZ -= right.z; }
+    if (keys["d"]) { moveX += right.x; moveZ += right.z; }
+
+    const move = new THREE.Vector3(moveX, 0, moveZ).normalize().multiplyScalar(speed);
+    const pos = player.position.clone();
+
+    const nextX = pos.clone().add(new THREE.Vector3(move.x, 0, 0));
+    if (!collides(nextX)) player.position.x = nextX.x;
+
+    const nextZ = player.position.clone().add(new THREE.Vector3(0, 0, move.z));
+    if (!collides(nextZ)) player.position.z = nextZ.z;
+
+    velocityY += gravity;
+    const nextY = player.position.clone().add(new THREE.Vector3(0, velocityY, 0));
+    if (!collides(nextY)) {
+      player.position.y = nextY.y;
+      isOnGround = false;
+    } else {
+      if (velocityY < 0) isOnGround = true;
+      velocityY = 0;
+    }
+
+    player.rotation.y = yaw;
+
+    if (isAttacking) {
+      attackTimer -= 0.016;
+      if (attackTimer <= 0) {
+        isAttacking = false;
+        let damage = 0.5;
+        if (currentWeapon === "Коготь") damage = 1;
+        if (currentWeapon === "Меч") damage = 0.5;
+        if (currentWeapon === "Меч+") damage = 1;
+
+        if (dragon && dragon.alive && player.position.distanceTo(dragon.position) < 3) {
+          dragon.health -= damage;
+          if (dragon.health <= 0) {
+            dragon.alive = false;
+            scene.remove(dragon);
+            dragon.healthBar.container.remove();
+            dragonDefeated = true;
+            updateUI();
+            showDialogue("Ты победил дракона! Теперь ты действительно кто-то.");
+          }
+        }
+
+        if (enemyInside && enemyInside.alive && player.position.distanceTo(enemyInside.position) < 2) {
+          enemyInside.health -= damage;
+          if (enemyInside.health <= 0) {
+            enemyInside.alive = false;
+            scene.remove(enemyInside);
+            enemyInside.healthBar.container.remove();
+            gold += 50; // можно корректировать награду
+            updateUI();
+          }
+        }
+
+
+        // === Проверка удара по волкам ===
+        wolves.forEach((wolf) => {
+          if (wolf.alive && player.position.distanceTo(wolf.position) < 2) {
+            wolf.health -= damage;
+            if (wolf.health <= 0) {
+              wolf.alive = false;
+              scene.remove(wolf);
+              wolf.healthBar.container.remove();
+              updateUI();
+
+              // Если все волки мертвы — квест выполнен
+              if (wolves.every(w => !w.alive)) {
+                questComplete = true;
+              }
+            }
+          }
+        });
+
+
+
+
+        bandits.forEach(b => {
+          if (b.alive && player.position.distanceTo(b.position) < 2) {
+            b.health -= damage;
+            if (b.health <= 0) {
+              b.alive = false;
+              scene.remove(b);
+              b.healthBar.container.remove();
+              updateUI();
+
+              // Если все разбойники побеждены — отметить выполнение квеста
+              if (bandits.every(b => !b.alive)) {
+                eastQuestComplete = true;
+              }
+            }
+          }
+        });
+
+
+      }
+    }
+
+
+        // Проверка победы над новыми врагами
+        if (isAttacking) {
+
+      if (greenEnemy.alive && player.position.distanceTo(greenEnemy.position) < 2) {
+        greenEnemy.health -= 1;
+        if (greenEnemy.health <= 0) {
+          greenEnemy.alive = false;
+          scene.remove(greenEnemy);
+          greenEnemy.healthBar.container.remove();
+          inventory.push("Философский ключ");
+          updateUI();
+        }
+      }
+    }
+
+
+
+
+    if (enemyInside && enemyInside.alive) {
+      chase(enemyInside);
+      updateHealthBar(enemyInside);
+      if (player.position.distanceTo(enemyInside.position) < 2) {
+        enemyInside.userData.attackTimer = (enemyInside.userData.attackTimer || 0) + 0.016;
+        if (enemyInside.userData.attackTimer >= 1) {
+          enemyInside.userData.attackTimer = 0;
+          takeDamage();
+        }
+      } else {
+        enemyInside.userData.attackTimer = 0;
+      }
+    }
+
+
+
+
+    if (dragon && dragon.alive) {
+      const dist = player.position.distanceTo(dragon.position);
+      const dir = player.position.clone().sub(dragon.position);
+      const horizontalDir = new THREE.Vector3(dir.x, 0, dir.z);
+      const distance = horizontalDir.length();
+
+      if (dist < 10) {
+        if (distance > 3) {
+          dragon.position.add(horizontalDir.normalize().multiplyScalar(0.04));
+        }
+        dragon.lookAt(player.position.clone().setY(dragon.position.y));
+
+        if (distance <= 3) {
+          dragon.userData.attackTimer = (dragon.userData.attackTimer || 0) + 0.016;
+          if (dragon.userData.attackTimer >= 0.5) {
+            dragon.userData.attackTimer = 0;
+            takeDamage(); takeDamage(); // урон ×2
+          }
+        } else {
+          dragon.userData.attackTimer = 0;
+        }
+      }
+
+      updateHealthBar(dragon);
+    }
+
+
+
+
+
+
+    // === ЛОГИКА ВОЛКОВ ===
+    wolves.forEach(wolf => {
+      if (!wolf.alive) return;
+
+      const dist = player.position.distanceTo(wolf.position);
+      const dir = player.position.clone().sub(wolf.position);
+      const horizontalDir = new THREE.Vector3(dir.x, 0, dir.z);
+      const distance = horizontalDir.length();
+
+      if (dist < 6) {
+        // Преследование
+        if (distance > 2.2) {
+          wolf.position.add(horizontalDir.normalize().multiplyScalar(0.05));
+        }
+
+        wolf.lookAt(player.position.clone().setY(wolf.position.y));
+
+        if (distance <= 2.2) {
+          wolf.userData.attackTimer = (wolf.userData.attackTimer || 0) + 0.016;
+          if (wolf.userData.attackTimer >= 1) {
+            wolf.userData.attackTimer = 0;
+            takeDamage();
+          }
+        } else {
+          wolf.userData.attackTimer = 0;
+        }
+
+      } else {
+        // Патрулирование
+        const target = wolf.path[wolf.pathIndex];
+        const patrolDir = target.clone().sub(wolf.position);
+        if (patrolDir.length() < 0.5) {
+          wolf.pathIndex = (wolf.pathIndex + 1) % wolf.path.length;
+        } else {
+          wolf.position.add(patrolDir.normalize().multiplyScalar(0.02));
+          wolf.lookAt(target.clone().setY(wolf.position.y));
+        }
+        wolf.userData.attackTimer = 0;
+      }
+
+      updateHealthBar(wolf);
+    });
+
+
+    bandits.forEach(b => {
+      if (!b.alive) return;
+
+      const dir = player.position.clone().sub(b.position);
+      dir.y = 0; // только по XZ
+      const distXZ = dir.length();
+
+      if (distXZ < 6) {
+        if (distXZ > 2.2) {
+          b.position.add(dir.normalize().multiplyScalar(0.04));
+        }
+        b.lookAt(player.position.clone().setY(b.position.y));
+
+        if (distXZ <= 2.2) {
+          b.userData.attackTimer = (b.userData.attackTimer || 0) + 0.016;
+          if (b.userData.attackTimer >= 1) {
+            b.userData.attackTimer = 0;
+            takeDamage();
+          }
+        } else {
+          b.userData.attackTimer = 0;
+        }
+      } else if (b.path) {
+        const target = b.path[b.pathIndex];
+        const patrolDir = target.clone().sub(b.position);
+        if (patrolDir.length() < 0.5) {
+          b.pathIndex = (b.pathIndex + 1) % b.path.length;
+        } else {
+          b.position.add(patrolDir.normalize().multiplyScalar(0.02));
+          b.lookAt(target.clone().setY(b.position.y));
+        }
+        b.userData.attackTimer = 0;
+      }
+
+      updateHealthBar(b);
+    });
+
+
+
+
+
+
+    if (gateOpen && gate.position.y < 10) {
+      gate.position.y += 0.1;
+    }
+
+    // Желаемая позиция камеры
+    const desiredCamPos = new THREE.Vector3(
+      player.position.x - Math.sin(yaw) * 7,
+      player.position.y + 2 + Math.sin(pitch) * 5,
+      player.position.z - Math.cos(yaw) * 7
+    );
+
+    // Направление от игрока к камере
+    const direction = new THREE.Vector3().subVectors(desiredCamPos, player.position).normalize();
+    const raycaster = new THREE.Raycaster(player.position.clone().add(new THREE.Vector3(0, 1.5, 0)), direction);
+    const intersects = raycaster.intersectObjects(obstacles, true);
+
+    if (intersects.length > 0 && intersects[0].distance < 7) {
+      // Если есть препятствие ближе 7 единиц — отодвигаем до него
+      desiredCamPos.copy(raycaster.ray.origin).add(direction.multiplyScalar(intersects[0].distance - 0.1));
+    }
+
+    camera.position.copy(desiredCamPos);
+    camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 1.5, 0)));
+
+
+    // Анимация рук и ног
+    function animateWalk(character, speed) {
+      const sin = Math.sin(walkCycle * 6) * 0.5;
+      const cos = Math.cos(walkCycle * 6) * 0.5;
+
+      character.leftArm.rotation.x = cos;
+      character.rightArm.rotation.x = -cos;
+      character.leftLeg.rotation.x = -cos;
+      character.rightLeg.rotation.x = cos;
+    }
+
+    walkCycle += move.length() * 0.2;
+
+    const isPlayerMoving = move.lengthSq() > 0.0001;
+
+    if (isPlayerMoving) {
+      const sin = Math.sin(walkCycle * 6) * 0.5;
+      const cos = Math.cos(walkCycle * 6) * 0.5;
+
+      const bounce = Math.abs(Math.cos(walkCycle * 6)) * 0.05;
+      playerParts.body.position.y = 1.4 - bounce;
+      playerParts.headGroup.position.y = 0 - bounce;
+
+      playerParts.leftArm.position.y = 1.8 - bounce;
+      playerParts.rightArm.position.y = 1.8 - bounce;
+      playerParts.leftElbow.position.y = -0.4 - bounce;
+      playerParts.rightElbow.position.y = -0.4 - bounce;
+      playerParts.leftWrist.position.y = -0.4 - bounce;
+      playerParts.rightWrist.position.y = -0.4 - bounce;
+
+
+
+      playerLeftArm.rotation.x = cos;
+      playerRightArm.rotation.x = -cos;
+      playerParts.leftElbow.rotation.x = -Math.PI / 4 + cos / 4;
+      playerParts.rightElbow.rotation.x = -Math.PI / 4 - cos / 4;
+
+
+
+      playerLeftLeg.rotation.x = -cos;
+      playerRightLeg.rotation.x = cos;
+      playerParts.leftKnee.rotation.x = -cos / 2;
+      playerParts.rightKnee.rotation.x = cos / 2;
+    } else {
+      playerParts.body.position.y = 1.4;
+
+      playerParts.leftArm.position.y = 1.8;
+      playerParts.rightArm.position.y = 1.8;
+      playerParts.leftElbow.position.y = -0.4;
+      playerParts.rightElbow.position.y = -0.4;
+      playerParts.leftWrist.position.y = -0.4;
+      playerParts.rightWrist.position.y = -0.4;
+
+      playerParts.headGroup.position.y = 0;
+      playerLeftArm.rotation.x = 0;
+      playerRightArm.rotation.x = 0;
+      playerParts.leftElbow.rotation.x = -Math.PI / 4; // ← полусогнутые
+      playerParts.rightElbow.rotation.x = -Math.PI / 4;
+      playerLeftLeg.rotation.x = 0;
+      playerRightLeg.rotation.x = 0;
+      playerParts.leftKnee.rotation.x = 0;
+      playerParts.rightKnee.rotation.x = 0;
+    }
+
+
+
+    // Анимация удара — правая рука
+    if (attackAnimTimer > 0) {
+      attackAnimTimer -= 0.016;
+      const totalTime = 0.15;
+      const raiseTime = 0.1;
+      const t = 1 - attackAnimTimer / totalTime;
+
+      let swing;
+      if (t < raiseTime / totalTime) {
+        // фаза подъема: от 0 до -90°
+        swing = -Math.PI / 2 * (t * totalTime / raiseTime);
+      } else {
+        // фаза удара вниз: от -90° до -180°
+        const tt = (t - raiseTime / totalTime) / (1 - raiseTime / totalTime);
+        swing = -Math.PI / 2 - Math.PI / 2 * tt;
+      }
+
+      playerRightArm.rotation.x = swing;
+      playerParts.rightElbow.rotation.x = 0;
+      playerParts.rightWrist.rotation.x = 0;
+    }
+
+
+
+
+
+
+
+    if (enemyInside && enemyInside.alive) {
+      // врага нет, логика не нужна
+    }
+
+
+    // Анимация открытия/закрытия двери
+    for (const d of allDoors) {
+      if (d.state === "opening") {
+        d.pivot.rotation.y -= 0.05;
+        if (d.pivot.rotation.y <= -Math.PI / 2) {
+          d.pivot.rotation.y = -Math.PI / 2;
+          d.state = "open";
+        }
+      } else if (d.state === "closing") {
+        d.pivot.rotation.y += 0.05;
+        if (d.pivot.rotation.y >= 0) {
+          d.pivot.rotation.y = 0;
+          d.state = "closed";
+        }
+      }
+    }
+
+
+
+
+
+
+
+    renderer.render(scene, camera);
+  }
+
+  updateUI();
+  updateHealthUI();
+
+
+  // --- Экран предыстории ---
+  const introOverlay = document.createElement("div");
+  introOverlay.style.position = "fixed";
+  introOverlay.style.top = "0";
+  introOverlay.style.left = "0";
+  introOverlay.style.width = "100%";
+  introOverlay.style.height = "100%";
+  introOverlay.style.background = "black";
+  introOverlay.style.color = "white";
+  introOverlay.style.fontFamily = "serif";
+  introOverlay.style.fontSize = "18px";
+  introOverlay.style.padding = "40px";
+  introOverlay.style.boxSizing = "border-box";
+  introOverlay.style.display = "flex";
+  introOverlay.style.justifyContent = "center";
+  introOverlay.style.alignItems = "center";
+  introOverlay.style.textAlign = "left";
+  introOverlay.style.zIndex = "9999";
+  introOverlay.innerHTML = `
+    <div>
+      <h2 style="margin-top:0">Вызов в Замок</h2>
+      <p>Вы — Ганс Таппенцаль, по приказу направлены в эти земли. Вы должны прибыть в замок и ожидать дальнейших указаний.</p>
+      <p>Однако вас не пропускают. Староста просит помощи с волками в западном лесу. Без его письма охрана замка не пустит вас внутрь.</p>
+      <p>После выполнения задачи появится возможность войти и продолжить выполнение задания.</p>
+      <p style="margin-top:20px;"><em>E - для взаимодйствия с окружением</em></p>
+      <p style="margin-top:20px;"><em>I - для смены оружия в инвентаре</em></p>
+      <p style="margin-top:20px;"><em>Enter - для закрытия текущего диалога</em></p>
+      <p style="margin-top:20px;"><em>Нажмите Enter (или A на геймпаде), чтобы начать</em></p>
+    </div>
+  `;
+  document.body.appendChild(introOverlay);
+
+  function closeIntro() {
+    blockJumpFrames = 3; // ⏳ блокируем прыжок на 3 кадра
+    introOverlay.remove();
+    document.removeEventListener("keydown", skipIntro);
+    window.removeEventListener("gamepadconnected", gamepadIntroConnect);
+  }
+
+
+  function skipIntro(e) {
+    if (e.key === "Enter") {
+      closeIntro();
+    }
+  }
+
+  function gamepadIntroConnect(e) {
+    const checkA = () => {
+      const gp = navigator.getGamepads()[e.gamepad.index];
+      if (gp && gp.buttons[0].pressed) {
+        blockJumpFrames = 3; // ✅ правильно блокируем прыжок на 3 кадра
+        closeIntro();
+      } else {
+        requestAnimationFrame(checkA);
+      }
+    };
+    requestAnimationFrame(checkA);
+  }
+
+
+  document.addEventListener("keydown", skipIntro);
+  window.addEventListener("gamepadconnected", gamepadIntroConnect);
+
+
+
+  const wolves = [];
+  const wolfPaths = [
+    [ [-25, -8], [-27, -10], [-30, -14], [-25, -11] ],
+    [ [-37, 3], [-42, -1], [-44, -3], [-41, 1] ],
+    [ [-42, 12], [-39, 13], [-41, 15], [-37, 14] ],
+    [ [-39, -5], [-40, -8], [-42, -8], [-46, -12] ]
+  ];
+
+  wolfPaths.forEach(path => {
+    const wolf = createWolf(path[0][0], path[0][1]);
+    wolf.path = path.map(p => new THREE.Vector3(p[0], 0, p[1]));
+    wolf.pathIndex = 0;
+    wolf.pathTimer = 0;
+    wolves.push(wolf);
+  });
+
+  function createBandit(x, z, color = 0x882200) {
+    const bandit = createEnemy(x, z, color);
+    bandit.isBandit = true;
+    bandits.push(bandit);
+    return bandit;
+  }
+
+  const patrolBandit = createBandit(35, -5);
+  patrolBandit.path = [
+    new THREE.Vector3(32, 0, -5),
+    new THREE.Vector3(38, 0, -5)
+  ];
+  patrolBandit.pathIndex = 0;
+
+  const campBandit1 = createBandit(42, -7);
+  const campBandit2 = createBandit(44, -6);
+
+  // Костёр
+  const fire = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.3, 0.3, 0.2, 12),
+    new THREE.MeshStandardMaterial({ color: 0xffaa00 })
+  );
+  fire.position.set(43, 0.1, -6.5);
+  fire.receiveShadow = true;
+  fire.castShadow = true;
+  scene.add(fire);
+
+
+
+  let dragon = null;
+
+  function createDragon(x, z) {
+    const mat = new THREE.MeshStandardMaterial({ color: 0x990000 });
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.8, 5.4), mat);
+    body.position.y = 1.8;
+    body.castShadow = true;
+    group.add(body);
+
+    const head = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), mat);
+    head.position.set(0, 2.2, 3);
+    head.castShadow = true;
+    group.add(head);
+
+    const legPositions = [
+      [-0.6, 0.9, -1.8],
+      [0.6, 0.9, -1.8],
+      [-0.6, 0.9, 1.8],
+      [0.6, 0.9, 1.8],
+    ];
+    for (const [x, y, z] of legPositions) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.8, 0.45), mat);
+      leg.position.set(x, y, z);
+      leg.castShadow = true;
+      group.add(leg);
+    }
+
+    // Крылья
+    const wingGeo = new THREE.BoxGeometry(2, 0.1, 4);
+    const wing1 = new THREE.Mesh(wingGeo, mat);
+    const wing2 = new THREE.Mesh(wingGeo, mat);
+    wing1.position.set(-2, 2.5, 0);
+    wing2.position.set(2, 2.5, 0);
+    wing1.rotation.y = Math.PI / 8;
+    wing2.rotation.y = -Math.PI / 8;
+    wing1.castShadow = true;
+    wing2.castShadow = true;
+    group.add(wing1);
+    group.add(wing2);
+
+    group.castShadow = true;
+    group.health = 6;
+    group.maxHealth = 6;
+    group.healthBar = createHealthBar();
+    group.alive = true;
+    scene.add(group);
+    return group;
+  }
+
+
+  dragon = createDragon(0, -80);
+
+
+  const greenMat = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+
+function greenWall(x, y, z, w, h, d) {
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), greenMat);
+  wall.position.set(x, y + h / 2, z);
+  wall.castShadow = true;
+  wall.receiveShadow = true;
+  scene.add(wall);
+  addObstacle(wall);
+}
+
+// === Основная (южная) платформа ===
+greenWall(0, 0,  50.5, 100, 3, 1);  // юг
+// север (пропуск у гряды)
+greenWall(-50.5, 0, 0, 1, 3, 100); // запад
+greenWall(50.5, 0, 0, 1, 3, 100);  // восток
+
+// === Драконова (северная) платформа ===
+// === Стена за драконом (север)
+greenWall(0, 0, -110.5, 100, 3, 1);
+// юг (пропуск у гряды)
+// === Боковые стены
+greenWall(-50.5, 0, -85, 1, 3, 70); // запад
+greenWall(50.5, 0, -85, 1, 3, 70);  // восток
+
+
+
+  animate();
+</script>
+</body>
+</html>

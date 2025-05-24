@@ -24,21 +24,32 @@
       overflow-y: auto;
     }
     input { width: 60px; }
-    button { margin-top: 4px; }
+    button, select { margin-top: 4px; }
   </style>
 </head>
 <body>
 <div id="ui">
-  <div>Тип: <span id="typeName">Стена</span></div>
+  <div>
+    Тип:
+    <select id="typeSelect" onchange="selectedType = parseInt(this.value);">
+      <option value="1">Стена (серый)</option>
+      <option value="2">Пол (жёлтый)</option>
+      <option value="3">Дерево (коричневый)</option>
+      <option value="4">Листва (зелёный)</option>
+      <option value="5">Камень (тёмно-серый)</option>
+    </select>
+  </div>
   <div>
     Grid: <input type="number" id="gridSizeInput" value="100">
     Блок: <input type="number" id="blockSizeInput" value="2">
     <button onclick="applySettings()">Применить</button>
   </div>
   <button onclick="toggleInputMode()" id="modeButton">Режим: Мышь</button>
+  <button onclick="addPlayer()">Добавить игрока</button>
   <button onclick="copyCode()">Скопировать код</button>
   <div id="codeOutput"></div>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 <script>
 document.addEventListener("contextmenu", e => e.preventDefault());
@@ -94,11 +105,6 @@ document.addEventListener("keydown", e => {
   if (e.key === "Delete" && activeEl.tagName !== "BUTTON") {
     removeBlock(previewCube.position);
   }
-
-  if ("12345".includes(e.key)) {
-    selectedType = parseInt(e.key);
-    document.getElementById("typeName").textContent = types[selectedType].name;
-  }
 });
 document.addEventListener("keyup", e => {
   if (["w", "s"].includes(e.key)) controls.forward = 0;
@@ -139,8 +145,9 @@ const types = {
   5: { name: "Камень", color: 0x555555 },
 };
 
-let selectedType = 1;
+let selectedType = parseInt(document.getElementById("typeSelect")?.value || 1);
 const placed = [];
+let playerMarker = null;
 
 let previewCube, previewEdge;
 function createPreview() {
@@ -175,7 +182,7 @@ function removeBlock(position) {
   let minDist = Infinity;
 
   scene.traverse(obj => {
-    if (obj.isMesh && obj !== previewCube && obj !== previewEdge) {
+    if (obj.isMesh && obj !== previewCube && obj !== previewEdge && obj !== playerMarker) {
       const dist = obj.position.distanceTo(position);
       if (dist < blockSize * 0.6 && dist < minDist) {
         nearest = obj;
@@ -196,10 +203,24 @@ function removeBlock(position) {
   }
 }
 
+function addPlayer() {
+  if (playerMarker) scene.remove(playerMarker);
+  const geom = new THREE.CapsuleGeometry(0.5, 1.5, 4, 8);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+  playerMarker = new THREE.Mesh(geom, mat);
+  playerMarker.position.copy(previewCube.position);
+  scene.add(playerMarker);
+  updateCodeOutput();
+}
+
 function updateCodeOutput() {
   let code = '';
   for (const b of placed) {
     code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.size}, ${b.size}, ${b.size}); // ${types[b.type].name}\n`;
+  }
+  if (playerMarker) {
+    const p = playerMarker.position;
+    code += `setPlayerPosition(${p.x}, ${p.y}, ${p.z});\n`;
   }
   document.getElementById("codeOutput").textContent = code;
 }
