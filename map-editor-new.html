@@ -96,6 +96,10 @@ document.addEventListener("keydown", e => {
   if (e.code === "PageUp") ghostControls.y = 1;
   if (e.code === "PageDown") ghostControls.y = -1;
 
+  if (e.key.toLowerCase() === "c") {
+    toggleInputMode();
+  }
+
   const activeEl = document.activeElement;
   if ((e.code === "Space" || e.code === "Enter") && inputMode === "keyboard" && activeEl.tagName !== "BUTTON") {
     e.preventDefault();
@@ -106,6 +110,7 @@ document.addEventListener("keydown", e => {
     removeBlock(previewCube.position);
   }
 });
+
 document.addEventListener("keyup", e => {
   if (["w", "s"].includes(e.key)) controls.forward = 0;
   if (["a", "d"].includes(e.key)) controls.strafe = 0;
@@ -216,7 +221,9 @@ function addPlayer() {
 function updateCodeOutput() {
   let code = '';
   for (const b of placed) {
-    code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.size}, ${b.size}, ${b.size}); // ${types[b.type].name}\n`;
+    const colorHex = "0x" + types[b.type].color.toString(16).padStart(6, '0');
+    code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.size}, ${b.size}, ${b.size}, ${colorHex}); // ${types[b.type].name}\n`;
+
   }
   if (playerMarker) {
     const p = playerMarker.position;
@@ -300,6 +307,28 @@ document.querySelectorAll('button').forEach(btn => {
     btn.blur();
   });
 });
+
+// Убираем фокус с кнопок после взаимодействия
+document.addEventListener('focusin', e => {
+  if (e.target.tagName === 'BUTTON') {
+    e.target.blur();
+  }
+});
+
+// Сбрасываем фокус с кнопок и инпутов сразу после клика
+document.querySelectorAll('button, input').forEach(el => {
+  el.addEventListener('mouseup', () => {
+    requestAnimationFrame(() => el.blur());
+  });
+});
+
+// Сбрасываем фокус с select только после выбора опции
+document.querySelectorAll('select').forEach(select => {
+  select.addEventListener('change', () => {
+    requestAnimationFrame(() => select.blur());
+  });
+});
+
 </script>
 </body>
 </html>

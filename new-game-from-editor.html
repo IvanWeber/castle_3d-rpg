@@ -990,23 +990,27 @@ buildWall(7, 3, 17, 2, 2, 2); // Листва
 
   let gate = null;
   let gateOpen = false;
-  function buildWall(x, y, z, w, h, d) {
-    const wallMat = new THREE.MeshStandardMaterial({});
-    loader.load(wallTextureBase64, texture => {
-      texture.wrapS = THREE.RepeatWrapping;
-      texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(w / 2, h / 2);
-      wallMat.map = texture;
-      wallMat.needsUpdate = true;
-    });
 
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
-    wall.position.set(x, y, z);
-    wall.castShadow = true;
-    wall.receiveShadow = true;
-    scene.add(wall);
-    addObstacle(wall);
-  }
+
+  function buildWall(x, y, z, w, h, d, color = 0x888888) {
+  const wallMat = new THREE.MeshStandardMaterial({ color }); // ← учитываем переданный цвет
+
+  loader.load(wallTextureBase64, texture => {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(w / 2, h / 2);
+    wallMat.map = texture;
+    wallMat.needsUpdate = true;
+  });
+
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+  wall.position.set(x, y, z);
+  wall.castShadow = true;
+  wall.receiveShadow = true;
+  scene.add(wall);
+  addObstacle(wall);
+}
+
 
 
   function buildCastle() {
@@ -1732,19 +1736,19 @@ function greenWall(x, y, z, w, h, d) {
   addObstacle(wall);
 }
 
-// === Основная (южная) платформа ===
-greenWall(0, 0,  50.5, 100, 3, 1);  // юг
-// север (пропуск у гряды)
-greenWall(-50.5, 0, 0, 1, 3, 100); // запад
-greenWall(50.5, 0, 0, 1, 3, 100);  // восток
 
-// === Драконова (северная) платформа ===
-// === Стена за драконом (север)
-greenWall(0, 0, -110.5, 100, 3, 1);
-// юг (пропуск у гряды)
-// === Боковые стены
-greenWall(-50.5, 0, -85, 1, 3, 70); // запад
-greenWall(50.5, 0, -85, 1, 3, 70);  // восток
+buildWall(1, 9, 29, 2, 2, 2, 0x885522); // Дерево
+buildWall(1, 11, 29, 2, 2, 2, 0x885522); // Дерево
+buildWall(1, 13, 29, 2, 2, 2, 0x885522); // Дерево
+buildWall(1, 15, 29, 2, 2, 2, 0x228822); // Листва
+buildWall(3, 15, 29, 2, 2, 2, 0x228822); // Листва
+buildWall(5, 15, 29, 2, 2, 2, 0x228822); // Листва
+buildWall(-1, 15, 29, 2, 2, 2, 0x228822); // Листва
+buildWall(-3, 15, 29, 2, 2, 2, 0x228822); // Листва
+buildWall(-1, 17, 29, 2, 2, 2, 0x228822); // Листва
+buildWall(1, 17, 29, 2, 2, 2, 0x228822); // Листва
+buildWall(3, 17, 29, 2, 2, 2, 0x228822); // Листва
+buildWall(1, 19, 29, 2, 2, 2, 0x228822); // Листва
 
 
 
