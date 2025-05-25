@@ -595,13 +595,13 @@
 
 
 
-  createNPC(0, 35, 0x000000, () => {
-    if (!inventory.includes("Философский ключ")) {
-      showDialogue("У замка есть интересный секрет. Могу поделиться.", ["Слушаю", "Мне уже достаточно загадок"], choice => {});
-    } else {
-      showDialogue("Удивительно. Вы нашли ключ, который не открывает ничего.", ["...спасибо?"], () => {});
-    }
-  });
+//   createNPC(0, 35, 0x000000, () => {
+//     if (!inventory.includes("Философский ключ")) {
+//       showDialogue("У замка есть интересный секрет. Могу поделиться.", ["Слушаю", "Мне уже достаточно загадок"], choice => {});
+//     } else {
+//       showDialogue("Удивительно. Вы нашли ключ, который не открывает ничего.", ["...спасибо?"], () => {});
+//     }
+//   });
 
 
   const guardNPC = createNPC(0, 8, 0x444444, () => {
@@ -660,8 +660,8 @@
 
 
 
-  const greenEnemy = createEnemy(15, 35, 0x00ff00);
-    buildWall(15, 3, 35, 6, 6, 6);
+//   const greenEnemy = createEnemy(15, 35, 0x00ff00);
+//     buildWall(15, 3, 35, 6, 6, 6);
 
     function createOrangeHouse(x, z) {
     const houseMat = new THREE.MeshStandardMaterial({ color: 0x996633 });
@@ -1023,8 +1023,6 @@ buildWall(7, 3, 17, 2, 2, 2); // Листва
     addObstacle(gate);
   }
 
-  buildCastle();
-
   function buildMountains() {
     const mountainMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
 
@@ -1085,9 +1083,6 @@ buildWall(7, 3, 17, 2, 2, 2); // Листва
   }
 
 
-
-  buildMountains();
-
   // Платформа земли за горами (появляется сразу, но визуально скрыта горами)
   const backArea = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 50), matFloor);
   backArea.scale.z = 1.2; // удлиним немного по глубине
@@ -1115,28 +1110,6 @@ buildWall(7, 3, 17, 2, 2, 2); // Листва
     scene.add(crown);
   }
 
-
-
-
-  // Лес в западной части карты
-  for (let i = 0; i < 15; i++) {
-    const x = -45 + Math.random() * 30;
-    const z = -15 + Math.random() * 30;
-    createTree(x, z);
-  }
-
-  // Лес в восточной части карты — возле разбойников
-  for (let i = 0; i < 12; i++) {
-    const x = 30 + Math.random() * 20;
-    const z = -15 + Math.random() * 20;
-    createTree(x, z);
-  }
-
-
-  // Три дерева на разных позициях
-  createTree(8, -5);
-  createTree(-5, 8);
-  createTree(15, 18);
 
 
 
@@ -1277,19 +1250,19 @@ buildWall(7, 3, 17, 2, 2, 2); // Листва
 
 
         // Проверка победы над новыми врагами
-        if (isAttacking) {
+    //     if (isAttacking) {
 
-      if (greenEnemy.alive && player.position.distanceTo(greenEnemy.position) < 2) {
-        greenEnemy.health -= 1;
-        if (greenEnemy.health <= 0) {
-          greenEnemy.alive = false;
-          scene.remove(greenEnemy);
-          greenEnemy.healthBar.container.remove();
-          inventory.push("Философский ключ");
-          updateUI();
-        }
-      }
-    }
+    //   if (greenEnemy.alive && player.position.distanceTo(greenEnemy.position) < 2) {
+    //     greenEnemy.health -= 1;
+    //     if (greenEnemy.health <= 0) {
+    //       greenEnemy.alive = false;
+    //       scene.remove(greenEnemy);
+    //       greenEnemy.healthBar.container.remove();
+    //       inventory.push("Философский ключ");
+    //       updateUI();
+    //     }
+    //   }
+    // }
 
 
 
