@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Редактор карты</title>
+  <title>Редактор карты — Радужный Круг</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -23,21 +23,26 @@
       max-height: 300px;
       overflow-y: auto;
     }
-    input { width: 60px; }
+    input[type="number"] { width: 60px; }
+    input[type="range"] { width: 120px; }
     button, select { margin-top: 4px; }
+    #colorWheel {
+      cursor: crosshair;
+      display: block;
+      margin-top: 5px;
+      border-radius: 50%;
+    }
   </style>
 </head>
 <body>
 <div id="ui">
   <div>
-    Тип:
-    <select id="typeSelect" onchange="selectedType = parseInt(this.value);">
-      <option value="1">Стена (серый)</option>
-      <option value="2">Пол (жёлтый)</option>
-      <option value="3">Дерево (коричневый)</option>
-      <option value="4">Листва (зелёный)</option>
-      <option value="5">Камень (тёмно-серый)</option>
-    </select>
+    Цвет:
+    <canvas id="colorWheel" width="150" height="150"></canvas>
+  </div>
+  <div>
+    Яркость:
+    <input type="range" id="brightnessInput" min="0" max="100" value="70">
   </div>
   <div>
     Grid: <input type="number" id="gridSizeInput" value="100">
@@ -65,6 +70,65 @@ let blockSize = 2;
 let inputMode = "mouse";
 let suppressClick = false;
 
+let selectedHue = 0;
+let selectedBrightness = 0.7;
+
+const colorWheel = document.getElementById("colorWheel");
+const wheelCtx = colorWheel.getContext("2d");
+function drawColorWheel() {
+  const radius = colorWheel.width / 2;
+  const image = wheelCtx.createImageData(colorWheel.width, colorWheel.height);
+  for (let y = 0; y < colorWheel.height; y++) {
+    for (let x = 0; x < colorWheel.width; x++) {
+      const dx = x - radius;
+      const dy = y - radius;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (d > radius) continue;
+      let angle = Math.atan2(dy, dx);
+      if (angle < 0) angle += 2 * Math.PI;
+      const hue = angle * 180 / Math.PI;
+      const sat = d / radius;
+      const rgb = hsvToRgb(hue, sat, selectedBrightness);
+      const i = (y * colorWheel.width + x) * 4;
+      image.data[i] = rgb[0];
+      image.data[i+1] = rgb[1];
+      image.data[i+2] = rgb[2];
+      image.data[i+3] = 255;
+    }
+  }
+  wheelCtx.putImageData(image, 0, 0);
+}
+function hsvToRgb(h, s, v) {
+  let f = (n, k = (n + h/60) % 6) =>
+    v - v * s * Math.max(Math.min(k, 4 - k, 1), 0);
+  return [
+    Math.round(f(5) * 255),
+    Math.round(f(3) * 255),
+    Math.round(f(1) * 255)
+  ];
+}
+function hsvToHex(h, s, v) {
+  const rgb = hsvToRgb(h, s, v);
+  return (rgb[0] << 16) | (rgb[1] << 8) | rgb[2];
+}
+colorWheel.addEventListener("click", e => {
+  const rect = colorWheel.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const dx = x - colorWheel.width / 2;
+  const dy = y - colorWheel.height / 2;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  if (dist > colorWheel.width/2) return;
+  let angle = Math.atan2(dy, dx);
+  if (angle < 0) angle += 2 * Math.PI;
+  selectedHue = angle * 180 / Math.PI;
+});
+document.getElementById("brightnessInput").addEventListener("input", e => {
+  selectedBrightness = parseFloat(e.target.value) / 100;
+  drawColorWheel();
+});
+drawColorWheel();
+
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
 camera.position.set(0, 10, 20);
@@ -86,7 +150,6 @@ const ghostControls = { x: 0, y: 0, z: 0 };
 let ghostMoveCooldown = 0;
 
 let mouseDown = false;
-
 let copiedBlocks = [];
 let pastePreviewGroup = null;
 
@@ -97,7 +160,6 @@ function cancelPasting() {
   }
 }
 
-
 document.addEventListener("keydown", e => {
   if (e.key === "w") controls.forward = 1;
   if (e.key === "s") controls.forward = -1;
@@ -105,26 +167,22 @@ document.addEventListener("keydown", e => {
   if (e.key === "d") controls.strafe = 1;
   if (e.key === "e") controls.up = 1;
   if (e.key === "q") controls.up = -1;
-
   if (e.key === "ArrowUp") ghostControls.z = 1;
   if (e.key === "ArrowDown") ghostControls.z = -1;
   if (e.key === "ArrowLeft") ghostControls.x = 1;
   if (e.key === "ArrowRight") ghostControls.x = -1;
   if (e.code === "PageUp") ghostControls.y = 1;
   if (e.code === "PageDown") ghostControls.y = -1;
-
   if (e.key.toLowerCase() === "c") toggleInputMode();
   if ((e.code === "Space" || e.code === "Enter") && inputMode === "keyboard") {
     e.preventDefault();
     placeBlock(previewCube.position);
   }
-
   if (e.key === "Delete") removeBlock(previewCube.position);
   if (e.key.toLowerCase() === "g") copyFragment();
   if (e.key.toLowerCase() === "v") pastePreviewGroup ? pasteFragment() : startPasting();
   if (e.key === "Escape") cancelPasting();
 });
-
 document.addEventListener("keyup", e => {
   if (["w", "s"].includes(e.key)) controls.forward = 0;
   if (["a", "d"].includes(e.key)) controls.strafe = 0;
@@ -133,7 +191,6 @@ document.addEventListener("keyup", e => {
   if (["ArrowLeft", "ArrowRight"].includes(e.key)) ghostControls.x = 0;
   if (["PageUp", "PageDown"].includes(e.code)) ghostControls.y = 0;
 });
-
 document.addEventListener("mousedown", e => {
   mouseDown = true;
   if (e.target.tagName === "BUTTON") suppressClick = true;
@@ -155,30 +212,12 @@ function toggleInputMode() {
   document.getElementById("modeButton").textContent = "Режим: " + (inputMode === "mouse" ? "Мышь" : "Клавиши");
 }
 
-const types = {
-  1: { name: "Стена", color: 0x888888 },
-  2: { name: "Пол", color: 0x999955 },
-  3: { name: "Дерево", color: 0x885522 },
-  4: { name: "Листва", color: 0x228822 },
-  5: { name: "Камень", color: 0x555555 },
-};
-
-let selectedType = parseInt(document.getElementById("typeSelect").value);
-const placed = [];
+let placed = [];
 let playerMarker = null;
-
 let previewCube, previewEdge;
 function createPreview() {
-  if (previewCube) {
-    previewCube.geometry.dispose();
-    previewCube.material.dispose();
-    scene.remove(previewCube);
-  }
-  if (previewEdge) {
-    previewEdge.geometry.dispose();
-    previewEdge.material.dispose();
-    scene.remove(previewEdge);
-  }
+  if (previewCube) scene.remove(previewCube);
+  if (previewEdge) scene.remove(previewEdge);
   const geom = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
   previewCube = new THREE.Mesh(geom, mat);
@@ -189,38 +228,27 @@ function createPreview() {
   scene.add(previewCube);
   scene.add(previewEdge);
 }
-
 function applySettings() {
   gridSize = parseInt(document.getElementById("gridSizeInput").value);
   blockSize = Math.max(0.01, parseFloat(document.getElementById("blockSizeInput").value));
-  document.getElementById("blockSizeInput").value = blockSize;
-
   scene.remove(gridHelper);
   gridHelper = new THREE.GridHelper(gridSize, gridSize);
   scene.add(gridHelper);
-
   createPreview();
-
-  const intersectPoint = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(10));
-  const snapped = intersectPoint.clone().divideScalar(blockSize).floor().multiplyScalar(blockSize).addScalar(blockSize / 2);
-  previewCube.position.copy(snapped);
-  previewEdge.position.copy(snapped);
 }
-
 createPreview();
 
 function placeBlock(position) {
-  const type = types[selectedType];
+  const color = hsvToHex(selectedHue, 1, selectedBrightness);
   const block = new THREE.Mesh(
     new THREE.BoxGeometry(blockSize, blockSize, blockSize),
-    new THREE.MeshStandardMaterial({ color: type.color })
+    new THREE.MeshStandardMaterial({ color })
   );
   block.position.copy(position).divideScalar(blockSize).floor().multiplyScalar(blockSize).addScalar(blockSize / 2);
   scene.add(block);
-  placed.push({ x: block.position.x, y: block.position.y, z: block.position.z, type: selectedType, size: blockSize });
+  placed.push({ x: block.position.x, y: block.position.y, z: block.position.z, color, size: blockSize });
   updateCodeOutput();
 }
-
 function removeBlock(position) {
   let nearest = null;
   let minDist = Infinity;
@@ -244,7 +272,6 @@ function removeBlock(position) {
     updateCodeOutput();
   }
 }
-
 function addPlayer() {
   if (playerMarker) scene.remove(playerMarker);
   const geom = new THREE.CapsuleGeometry(0.5, 1.5, 4, 8);
@@ -254,12 +281,11 @@ function addPlayer() {
   scene.add(playerMarker);
   updateCodeOutput();
 }
-
 function updateCodeOutput() {
   let code = '';
   for (const b of placed) {
-    const colorHex = "0x" + types[b.type].color.toString(16).padStart(6, '0');
-    code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.size}, ${b.size}, ${b.size}, ${colorHex}); // ${types[b.type].name}\n`;
+    const colorHex = "0x" + b.color.toString(16).padStart(6, '0');
+    code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.size}, ${b.size}, ${b.size}, ${colorHex});\n`;
   }
   if (playerMarker) {
     const p = playerMarker.position;
@@ -267,31 +293,26 @@ function updateCodeOutput() {
   }
   document.getElementById("codeOutput").textContent = code;
 }
-
 function copyCode() {
   const code = document.getElementById("codeOutput").textContent;
   navigator.clipboard.writeText(code).then(() => alert("Код скопирован!"));
 }
-
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 document.addEventListener("mousemove", e => {
   mouse.x = (e.clientX / innerWidth) * 2 - 1;
   mouse.y = -(e.clientY / innerHeight) * 2 + 1;
 });
-
 document.addEventListener("click", () => {
   if (inputMode === "mouse" && !suppressClick) {
     placeBlock(previewCube.position);
   }
 });
-
 function copyFragment() {
   const cx = previewCube.position.x;
   const cy = previewCube.position.y;
   const cz = previewCube.position.z;
-  const blockRadius = parseInt(document.getElementById("copyRangeInput")?.value || "3");
-  const radius = blockSize * blockRadius;
+  const radius = blockSize * parseInt(document.getElementById("copyRangeInput")?.value || "3");
   copiedBlocks = placed.filter(b =>
     Math.abs(b.x - cx) <= radius &&
     Math.abs(b.y - cy) <= radius &&
@@ -300,18 +321,17 @@ function copyFragment() {
     x: b.x - cx,
     y: b.y - cy,
     z: b.z - cz,
-    type: b.type,
+    color: b.color,
     size: b.size
   }));
   alert(`Скопировано блоков: ${copiedBlocks.length}`);
 }
-
 function startPasting() {
   if (copiedBlocks.length === 0) return;
   cancelPasting();
   pastePreviewGroup = new THREE.Group();
   for (const b of copiedBlocks) {
-    const mat = new THREE.MeshStandardMaterial({ color: types[b.type].color, transparent: true, opacity: 0.4 });
+    const mat = new THREE.MeshStandardMaterial({ color: b.color, transparent: true, opacity: 0.4 });
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.size, b.size, b.size), mat);
     mesh.position.set(b.x, b.y, b.z);
     pastePreviewGroup.add(mesh);
@@ -319,25 +339,22 @@ function startPasting() {
   updatePastePreviewPosition();
   scene.add(pastePreviewGroup);
 }
-
 function updatePastePreviewPosition() {
   if (pastePreviewGroup) pastePreviewGroup.position.copy(previewCube.position);
 }
-
 function pasteFragment() {
   if (!copiedBlocks.length) return;
   const base = previewCube.position.clone();
   for (const b of copiedBlocks) {
     const pos = base.clone().add(new THREE.Vector3(b.x, b.y, b.z));
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.size, b.size, b.size),
-      new THREE.MeshStandardMaterial({ color: types[b.type].color }));
+      new THREE.MeshStandardMaterial({ color: b.color }));
     mesh.position.copy(pos);
     scene.add(mesh);
-    placed.push({ x: pos.x, y: pos.y, z: pos.z, type: b.type, size: b.size });
+    placed.push({ x: pos.x, y: pos.y, z: pos.z, color: b.color, size: b.size });
   }
   updateCodeOutput();
 }
-
 function animate() {
   requestAnimationFrame(animate);
   if (ghostMoveCooldown > 0) ghostMoveCooldown -= 16;
@@ -354,20 +371,17 @@ function animate() {
       ghostMoveCooldown = 150;
     }
   }
-
   const dir = new THREE.Vector3(Math.sin(controls.yaw), 0, Math.cos(controls.yaw)).normalize();
   const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
   camera.position.add(dir.clone().multiplyScalar(controls.forward * 0.3));
   camera.position.add(right.clone().multiplyScalar(controls.strafe * 0.3));
   camera.position.y += controls.up * 0.3;
-
   const look = new THREE.Vector3(
     Math.sin(controls.yaw) * Math.cos(controls.pitch),
     Math.sin(controls.pitch),
     Math.cos(controls.yaw) * Math.cos(controls.pitch)
   );
   camera.lookAt(camera.position.clone().add(look));
-
   raycaster.setFromCamera(mouse, camera);
   const intersectPoint = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(10));
   const snapped = intersectPoint.clone().divideScalar(blockSize).floor().multiplyScalar(blockSize).addScalar(blockSize / 2);
@@ -376,7 +390,6 @@ function animate() {
     previewEdge.position.copy(snapped);
     if (pastePreviewGroup) updatePastePreviewPosition();
   }
-
   renderer.render(scene, camera);
 }
 animate();
