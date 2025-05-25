@@ -41,7 +41,7 @@
   </div>
   <div>
     Grid: <input type="number" id="gridSizeInput" value="100">
-    Блок: <input type="number" id="blockSizeInput" value="2">
+    Блок: <input type="number" id="blockSizeInput" value="2" step="0.1">
     <button onclick="applySettings()">Применить</button>
   </div>
   <button onclick="toggleInputMode()" id="modeButton">Режим: Мышь</button>
@@ -78,7 +78,7 @@ light.position.set(10, 20, 10);
 scene.add(light);
 scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
-let gridHelper = new THREE.GridHelper(gridSize, gridSize / blockSize);
+let gridHelper = new THREE.GridHelper(gridSize, gridSize);
 scene.add(gridHelper);
 
 const controls = { forward: 0, strafe: 0, up: 0, yaw: 0, pitch: 0 };
@@ -96,6 +96,7 @@ function cancelPasting() {
     pastePreviewGroup = null;
   }
 }
+
 
 document.addEventListener("keydown", e => {
   if (e.key === "w") controls.forward = 1;
@@ -119,17 +120,8 @@ document.addEventListener("keydown", e => {
   }
 
   if (e.key === "Delete") removeBlock(previewCube.position);
-
   if (e.key.toLowerCase() === "g") copyFragment();
-  if (e.key.toLowerCase() === "v") {
-    if (pastePreviewGroup) {
-        pasteFragment();
-        // теперь не отменяем — остаётся на сцене
-    } else {
-        startPasting();
-    }
-  }
-
+  if (e.key.toLowerCase() === "v") pastePreviewGroup ? pasteFragment() : startPasting();
   if (e.key === "Escape") cancelPasting();
 });
 
@@ -177,8 +169,16 @@ let playerMarker = null;
 
 let previewCube, previewEdge;
 function createPreview() {
-  if (previewCube) scene.remove(previewCube);
-  if (previewEdge) scene.remove(previewEdge);
+  if (previewCube) {
+    previewCube.geometry.dispose();
+    previewCube.material.dispose();
+    scene.remove(previewCube);
+  }
+  if (previewEdge) {
+    previewEdge.geometry.dispose();
+    previewEdge.material.dispose();
+    scene.remove(previewEdge);
+  }
   const geom = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
   previewCube = new THREE.Mesh(geom, mat);
@@ -189,6 +189,24 @@ function createPreview() {
   scene.add(previewCube);
   scene.add(previewEdge);
 }
+
+function applySettings() {
+  gridSize = parseInt(document.getElementById("gridSizeInput").value);
+  blockSize = Math.max(0.01, parseFloat(document.getElementById("blockSizeInput").value));
+  document.getElementById("blockSizeInput").value = blockSize;
+
+  scene.remove(gridHelper);
+  gridHelper = new THREE.GridHelper(gridSize, gridSize);
+  scene.add(gridHelper);
+
+  createPreview();
+
+  const intersectPoint = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(10));
+  const snapped = intersectPoint.clone().divideScalar(blockSize).floor().multiplyScalar(blockSize).addScalar(blockSize / 2);
+  previewCube.position.copy(snapped);
+  previewEdge.position.copy(snapped);
+}
+
 createPreview();
 
 function placeBlock(position) {
@@ -206,7 +224,6 @@ function placeBlock(position) {
 function removeBlock(position) {
   let nearest = null;
   let minDist = Infinity;
-
   scene.traverse(obj => {
     if (obj.isMesh && obj !== previewCube && obj !== previewEdge && obj !== playerMarker && obj.parent !== pastePreviewGroup) {
       const dist = obj.position.distanceTo(position);
@@ -216,7 +233,6 @@ function removeBlock(position) {
       }
     }
   });
-
   if (nearest) {
     scene.remove(nearest);
     const i = placed.findIndex(b =>
@@ -257,15 +273,6 @@ function copyCode() {
   navigator.clipboard.writeText(code).then(() => alert("Код скопирован!"));
 }
 
-function applySettings() {
-  gridSize = parseInt(document.getElementById("gridSizeInput").value);
-  blockSize = parseInt(document.getElementById("blockSizeInput").value);
-  scene.remove(gridHelper);
-  gridHelper = new THREE.GridHelper(gridSize, gridSize / blockSize);
-  scene.add(gridHelper);
-  createPreview();
-}
-
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 document.addEventListener("mousemove", e => {
@@ -279,15 +286,12 @@ document.addEventListener("click", () => {
   }
 });
 
-
 function copyFragment() {
   const cx = previewCube.position.x;
   const cy = previewCube.position.y;
   const cz = previewCube.position.z;
-
   const blockRadius = parseInt(document.getElementById("copyRangeInput")?.value || "3");
   const radius = blockSize * blockRadius;
-
   copiedBlocks = placed.filter(b =>
     Math.abs(b.x - cx) <= radius &&
     Math.abs(b.y - cy) <= radius &&
@@ -299,26 +303,16 @@ function copyFragment() {
     type: b.type,
     size: b.size
   }));
-
   alert(`Скопировано блоков: ${copiedBlocks.length}`);
 }
 
-
 function startPasting() {
   if (copiedBlocks.length === 0) return;
-
   cancelPasting();
   pastePreviewGroup = new THREE.Group();
   for (const b of copiedBlocks) {
-    const mat = new THREE.MeshStandardMaterial({
-      color: types[b.type].color,
-      transparent: true,
-      opacity: 0.4
-    });
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(b.size, b.size, b.size),
-      mat
-    );
+    const mat = new THREE.MeshStandardMaterial({ color: types[b.type].color, transparent: true, opacity: 0.4 });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.size, b.size, b.size), mat);
     mesh.position.set(b.x, b.y, b.z);
     pastePreviewGroup.add(mesh);
   }
@@ -333,32 +327,20 @@ function updatePastePreviewPosition() {
 function pasteFragment() {
   if (!copiedBlocks.length) return;
   const base = previewCube.position.clone();
-
   for (const b of copiedBlocks) {
     const pos = base.clone().add(new THREE.Vector3(b.x, b.y, b.z));
-    const type = types[b.type];
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(b.size, b.size, b.size),
-      new THREE.MeshStandardMaterial({ color: type.color })
-    );
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.size, b.size, b.size),
+      new THREE.MeshStandardMaterial({ color: types[b.type].color }));
     mesh.position.copy(pos);
     scene.add(mesh);
-    placed.push({
-      x: pos.x,
-      y: pos.y,
-      z: pos.z,
-      type: b.type,
-      size: b.size
-    });
+    placed.push({ x: pos.x, y: pos.y, z: pos.z, type: b.type, size: b.size });
   }
   updateCodeOutput();
 }
 
 function animate() {
   requestAnimationFrame(animate);
-
   if (ghostMoveCooldown > 0) ghostMoveCooldown -= 16;
-
   if (!mouseDown && (ghostControls.x || ghostControls.y || ghostControls.z)) {
     if (ghostMoveCooldown <= 0) {
       const move = new THREE.Vector3(
