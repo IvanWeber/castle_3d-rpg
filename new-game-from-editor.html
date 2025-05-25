@@ -46,10 +46,16 @@
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type    = THREE.VSMShadowMap;   // сглаживает швы
+//   renderer.shadowMap.type = THREE.BasicShadowMap;
   document.body.appendChild(renderer.domElement);
 
   const light = new THREE.DirectionalLight(0xffffff, 1.5);
+
+  light.shadow.bias       = -0.0005;  // убирает тёмные швы
+    light.shadow.normalBias =  0.02;    // маскирует «подпрыгивание» тени
+    light.shadow.radius     =  4;       // мягкие края
+
   light.position.set(-10, 20, 10);
   light.castShadow = true;
   light.shadow.mapSize.set(2048, 2048);
@@ -993,23 +999,32 @@ buildWall(7, 3, 17, 2, 2, 2); // Листва
 
 
   function buildWall(x, y, z, w, h, d, color = 0x888888) {
-  const wallMat = new THREE.MeshStandardMaterial({ color }); // ← учитываем переданный цвет
+  const wallMat = new THREE.MeshStandardMaterial({ color });
 
   loader.load(wallTextureBase64, texture => {
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
     texture.repeat.set(w / 2, h / 2);
+    texture.minFilter = THREE.NearestFilter;
+    texture.magFilter = THREE.NearestFilter;
+    texture.generateMipmaps = false;
     wallMat.map = texture;
     wallMat.needsUpdate = true;
   });
 
-  const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+  // Небольшая коррекция размеров и позиции, чтобы блоки "уходили" друг в друга на 0.01:
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(w + 0.01, h + 0.01, d + 0.01), wallMat);
   wall.position.set(x, y, z);
   wall.castShadow = true;
   wall.receiveShadow = true;
   scene.add(wall);
   addObstacle(wall);
 }
+
+
+
+
+
 
 
 
@@ -1749,6 +1764,24 @@ buildWall(-1, 17, 29, 2, 2, 2, 0x228822); // Листва
 buildWall(1, 17, 29, 2, 2, 2, 0x228822); // Листва
 buildWall(3, 17, 29, 2, 2, 2, 0x228822); // Листва
 buildWall(1, 19, 29, 2, 2, 2, 0x228822); // Листва
+
+
+
+buildWall(-1, 11, 29, 2, 2, 2, 0x228822); // Листва
+buildWall(-1, 9, 29, 2, 2, 2, 0x228822); // Листва
+buildWall(1, 9, 29, 2, 2, 2, 0x228822); // Листва
+buildWall(3, 13, 29, 2, 2, 2, 0x228822); // Листва
+buildWall(7, 13, 29, 2, 2, 2, 0x228822); // Листва
+buildWall(13, 13, 25, 2, 2, 2, 0x228822); // Листва
+buildWall(11, 1, 11, 2, 2, 2, 0x228822); // Листва
+buildWall(11, 1, 13, 2, 2, 2, 0x228822); // Листва
+buildWall(11, 1, 15, 2, 2, 2, 0x228822); // Листва
+buildWall(11, 3, 15, 2, 2, 2, 0x228822); // Листва
+buildWall(11, 3, 13, 2, 2, 2, 0x228822); // Листва
+buildWall(11, 3, 11, 2, 2, 2, 0x228822); // Листва
+buildWall(9, 1, 15, 2, 2, 2, 0x228822); // Листва
+buildWall(15, 7, 5, 2, 2, 2, 0x228822); // Листва
+
 
 
 
