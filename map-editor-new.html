@@ -55,6 +55,8 @@
   <button onclick="startPasting()">Вставить фрагмент</button>
   <button onclick="cancelPasting()">Отменить вставку</button>
   <button onclick="copyCode()">Скопировать код</button>
+  <button onclick="addEnemy()">Добавить врага</button>
+  <button onclick="removeEnemy()">Удалить врага</button>
   <div>
     Радиус копирования: <input type="number" id="copyRangeInput" value="3">
   </div>
@@ -214,6 +216,7 @@ function toggleInputMode() {
 
 let placed = [];
 let playerMarker = null;
+let enemies = [];
 let previewCube, previewEdge;
 function createPreview() {
   if (previewCube) scene.remove(previewCube);
@@ -281,6 +284,41 @@ function addPlayer() {
   scene.add(playerMarker);
   updateCodeOutput();
 }
+
+function addEnemy() {
+  const geom = new THREE.CapsuleGeometry(0.5, 1, 4, 8);
+  const color = hsvToHex(selectedHue, 1, selectedBrightness);
+  const mat = new THREE.MeshStandardMaterial({ color });
+  const enemy = new THREE.Mesh(geom, mat);
+  enemy.position.copy(previewCube.position);
+  scene.add(enemy);
+  enemies.push({ x: enemy.position.x, z: enemy.position.z, color });
+  updateCodeOutput();
+}
+
+function removeEnemy() {
+  let nearest = null;
+  let minDist = Infinity;
+  scene.traverse(obj => {
+    if (obj.geometry?.type === "CapsuleGeometry") {
+      const dist = obj.position.distanceTo(previewCube.position);
+      if (dist < blockSize * 0.6 && dist < minDist) {
+        nearest = obj;
+        minDist = dist;
+      }
+    }
+  });
+  if (nearest) {
+    scene.remove(nearest);
+    const i = enemies.findIndex(e =>
+      Math.abs(e.x - nearest.position.x) < 0.01 &&
+      Math.abs(e.z - nearest.position.z) < 0.01
+    );
+    if (i >= 0) enemies.splice(i, 1);
+    updateCodeOutput();
+  }
+}
+
 function updateCodeOutput() {
   let code = '';
   for (const b of placed) {
@@ -290,6 +328,10 @@ function updateCodeOutput() {
   if (playerMarker) {
     const p = playerMarker.position;
     code += `setPlayerPosition(${p.x}, ${p.y}, ${p.z});\n`;
+  }
+  for (const e of enemies) {
+    const colorHex = "0x" + e.color.toString(16).padStart(6, '0');
+    code += `createBandit(${e.x}, ${e.z}, ${colorHex});\n`;
   }
   document.getElementById("codeOutput").textContent = code;
 }
