@@ -46,7 +46,13 @@
   </div>
   <button onclick="toggleInputMode()" id="modeButton">Режим: Мышь</button>
   <button onclick="addPlayer()">Добавить игрока</button>
+  <button onclick="copyFragment()">Копировать фрагмент</button>
+  <button onclick="startPasting()">Вставить фрагмент</button>
+  <button onclick="cancelPasting()">Отменить вставку</button>
   <button onclick="copyCode()">Скопировать код</button>
+  <div>
+    Радиус копирования: <input type="number" id="copyRangeInput" value="3">
+  </div>
   <div id="codeOutput"></div>
 </div>
 
@@ -81,6 +87,16 @@ let ghostMoveCooldown = 0;
 
 let mouseDown = false;
 
+let copiedBlocks = [];
+let pastePreviewGroup = null;
+
+function cancelPasting() {
+  if (pastePreviewGroup) {
+    scene.remove(pastePreviewGroup);
+    pastePreviewGroup = null;
+  }
+}
+
 document.addEventListener("keydown", e => {
   if (e.key === "w") controls.forward = 1;
   if (e.key === "s") controls.forward = -1;
@@ -96,29 +112,34 @@ document.addEventListener("keydown", e => {
   if (e.code === "PageUp") ghostControls.y = 1;
   if (e.code === "PageDown") ghostControls.y = -1;
 
-  if (e.key.toLowerCase() === "c") {
-    toggleInputMode();
-  }
-
-  const activeEl = document.activeElement;
-  if ((e.code === "Space" || e.code === "Enter") && inputMode === "keyboard" && activeEl.tagName !== "BUTTON") {
+  if (e.key.toLowerCase() === "c") toggleInputMode();
+  if ((e.code === "Space" || e.code === "Enter") && inputMode === "keyboard") {
     e.preventDefault();
     placeBlock(previewCube.position);
   }
 
-  if (e.key === "Delete" && activeEl.tagName !== "BUTTON") {
-    removeBlock(previewCube.position);
+  if (e.key === "Delete") removeBlock(previewCube.position);
+
+  if (e.key.toLowerCase() === "g") copyFragment();
+  if (e.key.toLowerCase() === "v") {
+    if (pastePreviewGroup) {
+        pasteFragment();
+        // теперь не отменяем — остаётся на сцене
+    } else {
+        startPasting();
+    }
   }
+
+  if (e.key === "Escape") cancelPasting();
 });
 
 document.addEventListener("keyup", e => {
   if (["w", "s"].includes(e.key)) controls.forward = 0;
   if (["a", "d"].includes(e.key)) controls.strafe = 0;
   if (["q", "e"].includes(e.key)) controls.up = 0;
-
-  if (e.key === "ArrowUp" || e.key === "ArrowDown") ghostControls.z = 0;
-  if (e.key === "ArrowLeft" || e.key === "ArrowRight") ghostControls.x = 0;
-  if (e.code === "PageUp" || e.code === "PageDown") ghostControls.y = 0;
+  if (["ArrowUp", "ArrowDown"].includes(e.key)) ghostControls.z = 0;
+  if (["ArrowLeft", "ArrowRight"].includes(e.key)) ghostControls.x = 0;
+  if (["PageUp", "PageDown"].includes(e.code)) ghostControls.y = 0;
 });
 
 document.addEventListener("mousedown", e => {
@@ -150,7 +171,7 @@ const types = {
   5: { name: "Камень", color: 0x555555 },
 };
 
-let selectedType = parseInt(document.getElementById("typeSelect")?.value || 1);
+let selectedType = parseInt(document.getElementById("typeSelect").value);
 const placed = [];
 let playerMarker = null;
 
@@ -187,7 +208,7 @@ function removeBlock(position) {
   let minDist = Infinity;
 
   scene.traverse(obj => {
-    if (obj.isMesh && obj !== previewCube && obj !== previewEdge && obj !== playerMarker) {
+    if (obj.isMesh && obj !== previewCube && obj !== previewEdge && obj !== playerMarker && obj.parent !== pastePreviewGroup) {
       const dist = obj.position.distanceTo(position);
       if (dist < blockSize * 0.6 && dist < minDist) {
         nearest = obj;
@@ -223,7 +244,6 @@ function updateCodeOutput() {
   for (const b of placed) {
     const colorHex = "0x" + types[b.type].color.toString(16).padStart(6, '0');
     code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.size}, ${b.size}, ${b.size}, ${colorHex}); // ${types[b.type].name}\n`;
-
   }
   if (playerMarker) {
     const p = playerMarker.position;
@@ -252,17 +272,92 @@ document.addEventListener("mousemove", e => {
   mouse.x = (e.clientX / innerWidth) * 2 - 1;
   mouse.y = -(e.clientY / innerHeight) * 2 + 1;
 });
+
 document.addEventListener("click", () => {
   if (inputMode === "mouse" && !suppressClick) {
     placeBlock(previewCube.position);
   }
 });
 
+
+function copyFragment() {
+  const cx = previewCube.position.x;
+  const cy = previewCube.position.y;
+  const cz = previewCube.position.z;
+
+  const blockRadius = parseInt(document.getElementById("copyRangeInput")?.value || "3");
+  const radius = blockSize * blockRadius;
+
+  copiedBlocks = placed.filter(b =>
+    Math.abs(b.x - cx) <= radius &&
+    Math.abs(b.y - cy) <= radius &&
+    Math.abs(b.z - cz) <= radius
+  ).map(b => ({
+    x: b.x - cx,
+    y: b.y - cy,
+    z: b.z - cz,
+    type: b.type,
+    size: b.size
+  }));
+
+  alert(`Скопировано блоков: ${copiedBlocks.length}`);
+}
+
+
+function startPasting() {
+  if (copiedBlocks.length === 0) return;
+
+  cancelPasting();
+  pastePreviewGroup = new THREE.Group();
+  for (const b of copiedBlocks) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: types[b.type].color,
+      transparent: true,
+      opacity: 0.4
+    });
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(b.size, b.size, b.size),
+      mat
+    );
+    mesh.position.set(b.x, b.y, b.z);
+    pastePreviewGroup.add(mesh);
+  }
+  updatePastePreviewPosition();
+  scene.add(pastePreviewGroup);
+}
+
+function updatePastePreviewPosition() {
+  if (pastePreviewGroup) pastePreviewGroup.position.copy(previewCube.position);
+}
+
+function pasteFragment() {
+  if (!copiedBlocks.length) return;
+  const base = previewCube.position.clone();
+
+  for (const b of copiedBlocks) {
+    const pos = base.clone().add(new THREE.Vector3(b.x, b.y, b.z));
+    const type = types[b.type];
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(b.size, b.size, b.size),
+      new THREE.MeshStandardMaterial({ color: type.color })
+    );
+    mesh.position.copy(pos);
+    scene.add(mesh);
+    placed.push({
+      x: pos.x,
+      y: pos.y,
+      z: pos.z,
+      type: b.type,
+      size: b.size
+    });
+  }
+  updateCodeOutput();
+}
+
 function animate() {
   requestAnimationFrame(animate);
 
-  const delta = 16;
-  if (ghostMoveCooldown > 0) ghostMoveCooldown -= delta;
+  if (ghostMoveCooldown > 0) ghostMoveCooldown -= 16;
 
   if (!mouseDown && (ghostControls.x || ghostControls.y || ghostControls.z)) {
     if (ghostMoveCooldown <= 0) {
@@ -273,6 +368,7 @@ function animate() {
       );
       previewCube.position.add(move);
       previewEdge.position.add(move);
+      if (pastePreviewGroup) updatePastePreviewPosition();
       ghostMoveCooldown = 150;
     }
   }
@@ -296,39 +392,12 @@ function animate() {
   if (!mouseDown && ghostControls.x === 0 && ghostControls.y === 0 && ghostControls.z === 0 && inputMode === "mouse") {
     previewCube.position.copy(snapped);
     previewEdge.position.copy(snapped);
+    if (pastePreviewGroup) updatePastePreviewPosition();
   }
 
   renderer.render(scene, camera);
 }
 animate();
-
-document.querySelectorAll('button').forEach(btn => {
-  btn.addEventListener('mouseup', () => {
-    btn.blur();
-  });
-});
-
-// Убираем фокус с кнопок после взаимодействия
-document.addEventListener('focusin', e => {
-  if (e.target.tagName === 'BUTTON') {
-    e.target.blur();
-  }
-});
-
-// Сбрасываем фокус с кнопок и инпутов сразу после клика
-document.querySelectorAll('button, input').forEach(el => {
-  el.addEventListener('mouseup', () => {
-    requestAnimationFrame(() => el.blur());
-  });
-});
-
-// Сбрасываем фокус с select только после выбора опции
-document.querySelectorAll('select').forEach(select => {
-  select.addEventListener('change', () => {
-    requestAnimationFrame(() => select.blur());
-  });
-});
-
 </script>
 </body>
 </html>
