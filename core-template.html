@@ -1720,6 +1720,44 @@ buildWall(-9, 1, 25, 2, 2, 2, 0xb30000);
 createBandit(-7, 23, 0xad0000);
 createBandit(-7, 25, 0x1ead00);
 
+buildWall(-39, 1, 29, 2, 2, 2, 0xb30000);
+let npc123456789QuestGiven = false;
+let npc123456789QuestComplete = false;
+let npc123456789RewardGiven = false;
+
+const npc123456789 = createNPC(-39, 27, 0xffff00, () => {
+  // === Диалог NPC "npc123456789" ===
+  // Используйте переменные ниже для логики квеста:
+  // npc123456789QuestGiven, npc123456789QuestComplete, npc123456789RewardGiven
+
+  if (!npc123456789QuestGiven) {
+    showDialogue("Приветствую. Поможете нам с проблемой?", ["Да", "Нет"], choice => {
+      if (choice === "Да") {
+        npc123456789QuestGiven = true;
+        // Вставка второго диалога с задержкой, чтобы не перекрыть предыдущий
+        setTimeout(() => {
+          showDialogue("Отлично. Найдите и устраните 3 крысы в подвале.", ["Хорошо"]);
+        }, 0);
+      } else {
+        showDialogue("Жаль. Мы надеялись на вас.", ["Уйти"]);
+      }
+    });
+
+  } else if (!npc123456789QuestComplete) {
+    showDialogue("Вы ещё не выполнили задание. Найдите 3 крысы.", ["Понял"]);
+
+  } else if (!npc123456789RewardGiven) {
+    showDialogue("Отличная работа. Вот награда: 20 золотых.", ["Спасибо"], () => {
+      gold += 20;
+      inventory.push("Письмо-рекомендация");
+      npc123456789RewardGiven = true;
+      updateUI();
+    });
+
+  } else {
+    showDialogue("Благодарим ещё раз за помощь.", ["До встречи"]);
+  }
+});
 
 
 

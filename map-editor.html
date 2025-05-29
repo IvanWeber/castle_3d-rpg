@@ -61,6 +61,9 @@
     Радиус копирования: <input type="number" id="copyRangeInput" value="3">
   </div>
   <div id="codeOutput"></div>
+
+  <button onclick="addNPC()">Добавить NPC</button>
+  <input type="text" id="npcNameInput" placeholder="Имя NPC" style="width: 100px; margin-top:4px;">
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
@@ -217,6 +220,8 @@ function toggleInputMode() {
 let placed = [];
 let playerMarker = null;
 let enemies = [];
+
+let npcs = [];
 let previewCube, previewEdge;
 function createPreview() {
   if (previewCube) scene.remove(previewCube);
@@ -285,6 +290,34 @@ function addPlayer() {
   updateCodeOutput();
 }
 
+function addNPC() {
+  const name = document.getElementById("npcNameInput").value.trim();
+  if (!name) {
+    alert("Введите имя NPC.");
+    return;
+  }
+
+  const geom = new THREE.CapsuleGeometry(0.5, 1, 4, 8);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+  const npc = new THREE.Mesh(geom, mat);
+  npc.position.copy(previewCube.position);
+  scene.add(npc);
+
+  // Текстовое имя над NPC
+  const div = document.createElement("div");
+  div.textContent = name;
+  div.style.position = "absolute";
+  div.style.color = "white";
+  div.style.fontSize = "14px";
+  div.style.pointerEvents = "none";
+  div.dataset.npcName = name;
+  document.body.appendChild(div);
+
+  npcs.push({ x: npc.position.x, z: npc.position.z, name });
+  updateCodeOutput();
+}
+
+
 function addEnemy() {
   const geom = new THREE.CapsuleGeometry(0.5, 1, 4, 8);
   const color = hsvToHex(selectedHue, 1, selectedBrightness);
@@ -321,20 +354,74 @@ function removeEnemy() {
 
 function updateCodeOutput() {
   let code = '';
+
+  // Блоки
   for (const b of placed) {
     const colorHex = "0x" + b.color.toString(16).padStart(6, '0');
     code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.size}, ${b.size}, ${b.size}, ${colorHex});\n`;
   }
+
+  // Позиция игрока
   if (playerMarker) {
     const p = playerMarker.position;
     code += `setPlayerPosition(${p.x}, ${p.y}, ${p.z});\n`;
   }
+
+  // Враги
   for (const e of enemies) {
     const colorHex = "0x" + e.color.toString(16).padStart(6, '0');
     code += `createBandit(${e.x}, ${e.z}, ${colorHex});\n`;
   }
+
+  // NPC
+  for (const n of npcs) {
+    // Флаги
+    code += `let ${n.name}QuestGiven = false;\n`;
+    code += `let ${n.name}QuestComplete = false;\n`;
+    code += `let ${n.name}RewardGiven = false;\n\n`;
+
+    code += `const ${n.name} = createNPC(${n.x}, ${n.z}, 0xffff00, () => {\n`;
+    code += `  // === Диалог NPC "${n.name}" ===\n`;
+    code += `  // Используйте переменные ниже для логики квеста:\n`;
+    code += `  // ${n.name}QuestGiven, ${n.name}QuestComplete, ${n.name}RewardGiven\n\n`;
+
+    code += `  if (!${n.name}QuestGiven) {\n`;
+    code += `    showDialogue("Приветствую. Поможете нам с проблемой?", ["Да", "Нет"], choice => {\n`;
+    code += `      if (choice === "Да") {\n`;
+    code += `        ${n.name}QuestGiven = true;\n`;
+    code += `        // Вставка второго диалога с задержкой, чтобы не перекрыть предыдущий\n`;
+    code += `        setTimeout(() => {\n`;
+    code += `          showDialogue("Отлично. Найдите и устраните 3 крысы в подвале.", ["Хорошо"]);\n`;
+    code += `        }, 0);\n`;
+    code += `      } else {\n`;
+    code += `        showDialogue("Жаль. Мы надеялись на вас.", ["Уйти"]);\n`;
+    code += `      }\n`;
+    code += `    });\n\n`;
+
+    code += `  } else if (!${n.name}QuestComplete) {\n`;
+    code += `    showDialogue("Вы ещё не выполнили задание. Найдите 3 крысы.", ["Понял"]);\n\n`;
+
+    code += `  } else if (!${n.name}RewardGiven) {\n`;
+    code += `    showDialogue("Отличная работа. Вот награда: 20 золотых.", ["Спасибо"], () => {\n`;
+    code += `      gold += 20;\n`;
+    code += `      inventory.push("Письмо-рекомендация");\n`;
+    code += `      ${n.name}RewardGiven = true;\n`;
+    code += `      updateUI();\n`;
+    code += `    });\n\n`;
+
+    code += `  } else {\n`;
+    code += `    showDialogue("Благодарим ещё раз за помощь.", ["До встречи"]);\n`;
+    code += `  }\n`;
+
+    code += `});\n\n`;
+  }
+
   document.getElementById("codeOutput").textContent = code;
 }
+
+
+
+
 function copyCode() {
   const code = document.getElementById("codeOutput").textContent;
   navigator.clipboard.writeText(code).then(() => alert("Код скопирован!"));
@@ -432,6 +519,22 @@ function animate() {
     previewEdge.position.copy(snapped);
     if (pastePreviewGroup) updatePastePreviewPosition();
   }
+  document.querySelectorAll("[data-npc-name]").forEach(div => div.style.display = "none");
+
+  
+  npcs.forEach(npc => {
+    const screen = new THREE.Vector3(npc.x, 2.5, npc.z).project(camera);
+    const x = (screen.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (-screen.y * 0.5 + 0.5) * window.innerHeight;
+    const div = [...document.querySelectorAll("[data-npc-name]")].find(d => d.textContent === npc.name);
+    if (div) {
+      div.style.left = `${x - 30}px`;
+      div.style.top = `${y}px`;
+      div.style.display = "block";
+    }
+  });
+
+
   renderer.render(scene, camera);
 }
 animate();
