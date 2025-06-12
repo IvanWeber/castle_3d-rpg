@@ -181,8 +181,13 @@ document.addEventListener("keydown", e => {
   if (e.key.toLowerCase() === "c") toggleInputMode();
   if ((e.code === "Space" || e.code === "Enter") && inputMode === "keyboard") {
     e.preventDefault();
-    placeBlock(previewCube.position);
+    if (pastePreviewGroup) {
+      pasteFragment();
+    } else {
+      placeBlock(previewCube.position);
+    }
   }
+
   if (e.key === "Delete") removeBlock(previewCube.position);
   if (e.key.toLowerCase() === "g") copyFragment();
   if (e.key.toLowerCase() === "v") pastePreviewGroup ? pasteFragment() : startPasting();
@@ -472,18 +477,36 @@ function updatePastePreviewPosition() {
   if (pastePreviewGroup) pastePreviewGroup.position.copy(previewCube.position);
 }
 function pasteFragment() {
-  if (!copiedBlocks.length) return;
+  if (!pastePreviewGroup || !copiedBlocks.length) return;
+
   const base = previewCube.position.clone();
-  for (const b of copiedBlocks) {
-    const pos = base.clone().add(new THREE.Vector3(b.x, b.y, b.z));
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.size, b.size, b.size),
-      new THREE.MeshStandardMaterial({ color: b.color }));
+
+  // Используем позиции из призрачных блоков
+  for (let i = 0; i < pastePreviewGroup.children.length; i++) {
+    const ghost = pastePreviewGroup.children[i];
+    const b = copiedBlocks[i];
+
+    const pos = base.clone().add(ghost.position);
+
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(b.size, b.size, b.size),
+      new THREE.MeshStandardMaterial({ color: b.color })
+    );
     mesh.position.copy(pos);
     scene.add(mesh);
-    placed.push({ x: pos.x, y: pos.y, z: pos.z, color: b.color, size: b.size });
+
+    placed.push({
+      x: pos.x,
+      y: pos.y,
+      z: pos.z,
+      color: b.color,
+      size: b.size
+    });
   }
+
   updateCodeOutput();
 }
+
 function animate() {
   requestAnimationFrame(animate);
   if (ghostMoveCooldown > 0) ghostMoveCooldown -= 16;
