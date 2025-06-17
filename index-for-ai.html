@@ -24,6 +24,47 @@
       opacity: 0;
       transition: opacity 0.3s;
     }
+
+
+
+
+
+
+
+    .overlay {
+      position: absolute;
+      top: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.9);
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      z-index: 10;
+      color: white;
+    }
+    .hidden { display: none; }
+    button {
+      display: inline-block;
+      margin: 4px;
+      padding: 8px 16px;
+      font-size: 14px;
+    }
+    .slot-container {
+      margin-bottom: 10px;
+    }
+    .slot-info {
+      font-size: 13px;
+      color: #aaa;
+    }
+    .delete-button {
+      background: #800;
+      color: white;
+      border: none;
+      margin-left: 10px;
+      cursor: pointer;
+    }
+
   </style>
 </head>
 <body>
@@ -34,6 +75,35 @@
   <div id="dialogue"></div>
 </div>
 <div id="redFlash"></div>
+
+<!-- Меню системы сохранений -->
+<div id="mainMenu" class="overlay hidden">
+  <h1>Главное меню</h1>
+  <button onclick="Menu.newGame()">Новая игра</button>
+  <button onclick="Menu.showLoadMenu()">Загрузить</button>
+  <button onclick="Menu.exportAll()">Экспорт</button>
+  <input type="file" accept=".json" onchange="Menu.importAll(event)">
+</div>
+
+<div id="loadMenu" class="overlay hidden">
+  <h2>Загрузить игру</h2>
+  <div id="loadSlots"></div>
+  <button onclick="Menu.back()">Назад</button>
+</div>
+
+<div id="inGameMenu" class="overlay hidden">
+  <h2>Пауза</h2>
+  <button onclick="Menu.resume()">Продолжить</button>
+  <button onclick="Menu.showSaveMenu()">Сохранить</button>
+  <button onclick="Menu.showLoadMenu(true)">Загрузить</button>
+  <button onclick="Menu.showMainMenu()">Главное меню</button>
+</div>
+
+<div id="saveMenu" class="overlay hidden">
+  <h2>Сохранить игру</h2>
+  <div id="saveSlots"></div>
+  <button onclick="Menu.showInGameMenu()">Назад</button>
+</div>
 <!-- Локальная копия Three.js (r158), чтобы не зависеть от CDN -->
 <script src="three.min.js"></script>
 <script>
@@ -340,6 +410,9 @@
   }
 
   document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !isTalking) {
+      Menu.showInGameMenu();
+    }
     if (isTalking) {
       if (["w", "a", "arrowup"].includes(e.key.toLowerCase())) {
         selectedIndex = (selectedIndex - 1 + currentChoices.length) % currentChoices.length;
@@ -1716,7 +1789,252 @@ greenWall(50.5, 0, -85, 1, 3, 70);  // восток
 
 
 
+function getGameState() {
+  return {
+    playerHealth,
+    playerPos: { x: player.position.x, y: player.position.y, z: player.position.z },
+    gold,
+    inventory,
+    questGiven,
+    questComplete,
+    rewardGiven,
+    swordSold,
+    eastQuestGiven,
+    eastQuestComplete,
+    eastRewardGiven,
+    dragonQuestGiven,
+    dragonDefeated,
+    mountainPassOpened,
+    doorStates: allDoors.map(d => d.state),
+    greenEnemyDead: !greenEnemy.alive
+  };
+}
+
+function loadGameState(state) {
+  playerHealth = state.playerHealth;
+  player.position.set(state.playerPos.x, state.playerPos.y, state.playerPos.z);
+  gold = state.gold;
+  inventory = state.inventory;
+  questGiven = state.questGiven;
+  questComplete = state.questComplete;
+  rewardGiven = state.rewardGiven;
+  swordSold = state.swordSold;
+  eastQuestGiven = state.eastQuestGiven;
+  eastQuestComplete = state.eastQuestComplete;
+  eastRewardGiven = state.eastRewardGiven;
+  dragonQuestGiven = state.dragonQuestGiven;
+  dragonDefeated = state.dragonDefeated;
+  mountainPassOpened = state.mountainPassOpened;
+
+  state.doorStates.forEach((s, i) => {
+    allDoors[i].state = s;
+    allDoors[i].pivot.rotation.y = (s === "open") ? -Math.PI / 2 : 0;
+  });
+
+  if (state.greenEnemyDead && greenEnemy) {
+    greenEnemy.alive = false;
+    scene.remove(greenEnemy);
+    greenEnemy.healthBar.container.remove();
+  }
+
+  updateUI();
+  updateHealthUI();
+}
+
+
   animate();
+
+  const Storage = {
+  prefix: "rpg_save_",
+  slots: 10,
+
+  saveTo(slot, state) {
+    const data = { state, timestamp: new Date().toISOString() };
+    localStorage.setItem(this.prefix + slot, JSON.stringify(data));
+  },
+  loadFrom(slot) {
+    const raw = localStorage.getItem(this.prefix + slot);
+    return raw ? JSON.parse(raw) : null;
+  },
+  delete(slot) {
+    localStorage.removeItem(this.prefix + slot);
+  },
+  exportAll() {
+    const all = {};
+    for (let i = 1; i <= this.slots; i++) {
+      const entry = this.loadFrom(i);
+      if (entry) all["slot" + i] = entry;
+    }
+    return all;
+  },
+  importAll(data) {
+    for (let key in data) {
+      const match = key.match(/^slot(\d+)$/);
+      if (match) {
+        const slot = parseInt(match[1]);
+        if (slot >= 1 && slot <= this.slots) {
+          localStorage.setItem(this.prefix + slot, JSON.stringify(data[key]));
+        }
+      }
+    }
+  }
+};
+
+const Menu = {
+  main: document.getElementById("mainMenu"),
+  load: document.getElementById("loadMenu"),
+  save: document.getElementById("saveMenu"),
+  inGame: document.getElementById("inGameMenu"),
+  loadSlots: document.getElementById("loadSlots"),
+  saveSlots: document.getElementById("saveSlots"),
+  fromGame: false,
+
+  hideAll() {
+    this.main.classList.add("hidden");
+    this.load.classList.add("hidden");
+    this.save.classList.add("hidden");
+    this.inGame.classList.add("hidden");
+  },
+
+  showMainMenu() {
+    this.hideAll();
+    this.main.classList.remove("hidden");
+  },
+
+  showInGameMenu() {
+    this.hideAll();
+    this.inGame.classList.remove("hidden");
+  },
+
+  showSaveMenu() {
+    this.hideAll();
+    this.save.classList.remove("hidden");
+    this.saveSlots.innerHTML = "";
+    for (let i = 1; i <= Storage.slots; i++) {
+      const container = document.createElement("div");
+      container.className = "slot-container";
+
+      const btn = document.createElement("button");
+      btn.textContent = `Слот ${i}`;
+      btn.onclick = () => {
+        Storage.saveTo(i, getGameState());
+        alert(`Сохранено в слот ${i}`);
+        this.showInGameMenu();
+      };
+
+      const entry = Storage.loadFrom(i);
+      if (entry) {
+        const del = document.createElement("button");
+        del.className = "delete-button";
+        del.textContent = "🗑";
+        del.onclick = () => {
+          if (confirm(`Удалить слот ${i}?`)) {
+            Storage.delete(i);
+            this.showSaveMenu();
+          }
+        };
+        const info = document.createElement("div");
+        info.className = "slot-info";
+        const time = new Date(entry.timestamp).toLocaleString();
+        info.textContent = `⏱ ${time}, ${entry.state ? "OK" : "⚠"}`;
+
+        container.appendChild(btn);
+        container.appendChild(del);
+        container.appendChild(info);
+      } else {
+        container.appendChild(btn);
+      }
+
+      this.saveSlots.appendChild(container);
+    }
+  },
+
+  showLoadMenu(fromGame = false) {
+    this.fromGame = fromGame;
+    this.hideAll();
+    this.load.classList.remove("hidden");
+    this.loadSlots.innerHTML = "";
+    for (let i = 1; i <= Storage.slots; i++) {
+      const entry = Storage.loadFrom(i);
+      if (entry) {
+        const container = document.createElement("div");
+        container.className = "slot-container";
+
+        const btn = document.createElement("button");
+        btn.textContent = `Слот ${i}`;
+        btn.onclick = () => {
+          loadGameState(entry.state);
+          this.hideAll();
+        };
+
+        const del = document.createElement("button");
+        del.className = "delete-button";
+        del.textContent = "🗑";
+        del.onclick = () => {
+          if (confirm(`Удалить слот ${i}?`)) {
+            Storage.delete(i);
+            this.showLoadMenu(this.fromGame);
+          }
+        };
+
+        const info = document.createElement("div");
+        info.className = "slot-info";
+        const time = new Date(entry.timestamp).toLocaleString();
+        info.textContent = `⏱ ${time}, ${entry.state ? "OK" : "⚠"}`;
+
+        container.appendChild(btn);
+        container.appendChild(del);
+        container.appendChild(info);
+        this.loadSlots.appendChild(container);
+      }
+    }
+    if (!this.loadSlots.children.length) {
+      const msg = document.createElement("p");
+      msg.textContent = "Нет сохранений.";
+      this.loadSlots.appendChild(msg);
+    }
+  },
+
+  exportAll() {
+    const blob = new Blob([JSON.stringify(Storage.exportAll())], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "saves.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  importAll(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        Storage.importAll(data);
+        alert("Импорт завершён.");
+      } catch {
+        alert("Ошибка импорта.");
+      }
+    };
+    reader.readAsText(file);
+  },
+
+  resume() {
+    this.hideAll();
+  },
+
+  back() {
+    if (this.fromGame) this.showInGameMenu();
+    else this.showMainMenu();
+  },
+
+  newGame() {
+    location.reload(); // либо обнуление переменных
+  }
+};
+
 </script>
 </body>
 </html>
