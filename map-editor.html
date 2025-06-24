@@ -37,6 +37,12 @@
 <body>
 <div id="ui">
   <div>
+    Размер блока:
+    X: <input type="number" id="sizeXInput" value="2" step="0.1" style="width: 50px;">
+    Y: <input type="number" id="sizeYInput" value="2" step="0.1" style="width: 50px;">
+    Z: <input type="number" id="sizeZInput" value="2" step="0.1" style="width: 50px;">
+  </div>
+  <div>
     Цвет:
     <canvas id="colorWheel" width="150" height="150"></canvas>
   </div>
@@ -232,13 +238,20 @@ let previewCube, previewEdge;
 function createPreview() {
   if (previewCube) scene.remove(previewCube);
   if (previewEdge) scene.remove(previewEdge);
-  const geom = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
+
+  const sx = parseFloat(document.getElementById("sizeXInput").value);
+  const sy = parseFloat(document.getElementById("sizeYInput").value);
+  const sz = parseFloat(document.getElementById("sizeZInput").value);
+
+  const geom = new THREE.BoxGeometry(sx, sy, sz);
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+
   previewCube = new THREE.Mesh(geom, mat);
   previewEdge = new THREE.LineSegments(
     new THREE.EdgesGeometry(geom),
     new THREE.LineBasicMaterial({ color: 0xffff00 })
   );
+
   scene.add(previewCube);
   scene.add(previewEdge);
 }
@@ -252,17 +265,36 @@ function applySettings() {
 }
 createPreview();
 
+
+["sizeXInput", "sizeYInput", "sizeZInput"].forEach(id =>
+  document.getElementById(id).addEventListener("input", createPreview)
+);
+
 function placeBlock(position) {
+  const sx = parseFloat(document.getElementById("sizeXInput").value);
+  const sy = parseFloat(document.getElementById("sizeYInput").value);
+  const sz = parseFloat(document.getElementById("sizeZInput").value);
   const color = hsvToHex(selectedHue, 1, selectedBrightness);
+
   const block = new THREE.Mesh(
-    new THREE.BoxGeometry(blockSize, blockSize, blockSize),
+    new THREE.BoxGeometry(sx, sy, sz),
     new THREE.MeshStandardMaterial({ color })
   );
-  block.position.copy(position).divideScalar(blockSize).floor().multiplyScalar(blockSize).addScalar(blockSize / 2);
+
+  block.position.copy(position).divideScalar(1).floor().addScalar(0.5);
   scene.add(block);
-  placed.push({ x: block.position.x, y: block.position.y, z: block.position.z, color, size: blockSize });
+
+  placed.push({
+    x: block.position.x,
+    y: block.position.y,
+    z: block.position.z,
+    sx, sy, sz,
+    color
+  });
+
   updateCodeOutput();
 }
+
 function removeBlock(position) {
   let nearest = null;
   let minDist = Infinity;
@@ -364,7 +396,7 @@ function updateCodeOutput() {
   // Блоки
   for (const b of placed) {
     const colorHex = "0x" + b.color.toString(16).padStart(6, '0');
-    code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.size}, ${b.size}, ${b.size}, ${colorHex});\n`;
+    code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.sx}, ${b.sy}, ${b.sz}, ${colorHex});\n`;
   }
 
   // Позиция игрока
@@ -452,13 +484,15 @@ function copyFragment() {
     Math.abs(b.x - cx) <= radius &&
     Math.abs(b.y - cy) <= radius &&
     Math.abs(b.z - cz) <= radius
-  ).map(b => ({
-    x: b.x - cx,
-    y: b.y - cy,
-    z: b.z - cz,
-    color: b.color,
-    size: b.size
-  }));
+    ).map(b => ({
+      x: b.x - cx,
+      y: b.y - cy,
+      z: b.z - cz,
+      sx: b.sx,
+      sy: b.sy,
+      sz: b.sz,
+      color: b.color
+    }));
   alert(`Скопировано блоков: ${copiedBlocks.length}`);
 }
 function startPasting() {
@@ -467,10 +501,11 @@ function startPasting() {
   pastePreviewGroup = new THREE.Group();
   for (const b of copiedBlocks) {
     const mat = new THREE.MeshStandardMaterial({ color: b.color, transparent: true, opacity: 0.4 });
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.size, b.size, b.size), mat);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.sx, b.sy, b.sz), mat);
     mesh.position.set(b.x, b.y, b.z);
     pastePreviewGroup.add(mesh);
   }
+
   updatePastePreviewPosition();
   scene.add(pastePreviewGroup);
 }
@@ -490,7 +525,7 @@ function pasteFragment() {
     const pos = base.clone().add(ghost.position);
 
     const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(b.size, b.size, b.size),
+      new THREE.BoxGeometry(b.sx, b.sy, b.sz),
       new THREE.MeshStandardMaterial({ color: b.color })
     );
     mesh.position.copy(pos);
@@ -500,8 +535,10 @@ function pasteFragment() {
       x: pos.x,
       y: pos.y,
       z: pos.z,
-      color: b.color,
-      size: b.size
+      sx: b.sx,
+      sy: b.sy,
+      sz: b.sz,
+      color: b.color
     });
   }
 
