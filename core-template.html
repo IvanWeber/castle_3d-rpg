@@ -109,9 +109,9 @@
     scene.add(sky);
   });
 
-  function createCharacter({ color = 0xaaaaaa, material = null, x = 0, z = 0 }) {
+  function createCharacter({ color = 0xaaaaaa, material = null, x = 0, y = 0, z = 0 }) {
   const group = new THREE.Group();
-  group.position.set(x, 0, z);
+  group.position.set(x, y, z);
   const mat = material || new THREE.MeshStandardMaterial({ color });
 
   // Меньшее тело
@@ -541,8 +541,8 @@
   let mountainPassOpened = false;
 
 
-  function createNPC(x, z, color, talkFn) {
-    const parts = createCharacter({ color, x, z });
+  function createNPC(x, y, z, color, talkFn) {
+    const parts = createCharacter({ color, x, y, z });
     const npc = parts.group;
     npc.talk = talkFn;
     npc.castShadow = true;

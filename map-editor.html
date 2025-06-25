@@ -354,7 +354,7 @@ function addNPC() {
   div.dataset.npcName = name;
   document.body.appendChild(div);
 
-  npcs.push({ x: npc.position.x, z: npc.position.z, name });
+  npcs.push({ x: npc.position.x, y: npc.position.y, z: npc.position.z, name });
   updateCodeOutput();
 }
 
@@ -421,7 +421,7 @@ function updateCodeOutput() {
     code += `let ${n.name}QuestComplete = false;\n`;
     code += `let ${n.name}RewardGiven = false;\n\n`;
 
-    code += `const ${n.name} = createNPC(${n.x}, ${n.z}, 0xffff00, () => {\n`;
+    code += `const ${n.name} = createNPC(${n.x}, ${n.y}, ${n.z}, 0xffff00, () => {\n`;
     code += `  // === Диалог NPC "${n.name}" ===\n`;
     code += `  // Используйте переменные ниже для логики квеста:\n`;
     code += `  // ${n.name}QuestGiven, ${n.name}QuestComplete, ${n.name}RewardGiven\n\n`;
@@ -741,9 +741,9 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     scene2.add(sky);
   });
 
-  function createCharacter({ color = 0xaaaaaa, material = null, x = 0, z = 0 }) {
+  function createCharacter({ color = 0xaaaaaa, material = null, x = 0, y = 0, z = 0 }) {
   const group = new THREE.Group();
-  group.position.set(x, 0, z);
+  group.position.set(x, y, z);
   const mat = material || new THREE.MeshStandardMaterial({ color });
 
   // Меньшее тело
@@ -1173,8 +1173,8 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   let mountainPassOpened = false;
 
 
-  function createNPC(x, z, color, talkFn) {
-    const parts = createCharacter({ color, x, z });
+  function createNPC(x, y, z, color, talkFn) {
+    const parts = createCharacter({ color, x, y, z });
     const npc = parts.group;
     npc.talk = talkFn;
     npc.castShadow = true;
@@ -2129,7 +2129,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     group.maxHealth = 6;
     group.healthBar = createHealthBar();
     group.alive = true;
-    scene.add(group);
+    scene2.add(group);
     return group;
   }
 
@@ -2143,7 +2143,7 @@ function greenWall(x, y, z, w, h, d) {
   wall.position.set(x, y + h / 2, z);
   wall.castShadow = true;
   wall.receiveShadow = true;
-  scene.add(wall);
+  scene2.add(wall);
   addObstacle(wall);
 }
 
