@@ -587,7 +587,8 @@ function animate() {
 
   
   npcs.forEach(npc => {
-    const screen = new THREE.Vector3(npc.x, 2.5, npc.z).project(camera);
+    const worldPos = new THREE.Vector3(npc.x, npc.y + 2.5, npc.z);
+    const screen = worldPos.project(camera);
     const x = (screen.x * 0.5 + 0.5) * window.innerWidth;
     const y = (-screen.y * 0.5 + 0.5) * window.innerHeight;
     const div = [...document.querySelectorAll("[data-npc-name]")].find(d => d.textContent === npc.name);
