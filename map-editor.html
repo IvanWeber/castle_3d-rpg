@@ -9,19 +9,24 @@
     #ui {
       position: absolute;
       top: 10px; left: 10px;
-      background: rgba(0,0,0,0.6); color: white;
-      padding: 10px; font-family: sans-serif;
+      background: rgba(0,0,0,0.4); /* чуть прозрачнее */
+      color: white;
+      padding: 10px;
+      font-family: sans-serif;
       border-radius: 8px;
       z-index: 10;
+      backdrop-filter: blur(2px); /* размытый фон */
     }
     #codeOutput {
       white-space: pre-wrap;
       font-family: monospace;
-      background: #222;
+      background: rgba(34, 34, 34, 0.6); /* ← полупрозрачный фон */
       padding: 10px;
       margin-top: 10px;
       max-height: 300px;
       overflow-y: auto;
+      color: #eee; /* чуть светлее для читаемости */
+      border-radius: 6px;
     }
     input[type="number"] { width: 60px; }
     input[type="range"] { width: 120px; }
