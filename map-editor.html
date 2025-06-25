@@ -281,7 +281,9 @@ function placeBlock(position) {
     new THREE.MeshStandardMaterial({ color })
   );
 
-  block.position.copy(position).divideScalar(1).floor().addScalar(0.5);
+  // Было: block.position.copy(position).divideScalar(1).floor().addScalar(0.5);
+  block.position.copy(position); // ← Исправление
+
   scene.add(block);
 
   placed.push({
@@ -294,6 +296,7 @@ function placeBlock(position) {
 
   updateCodeOutput();
 }
+
 
 function removeBlock(position) {
   let nearest = null;
