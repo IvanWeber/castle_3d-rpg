@@ -297,11 +297,27 @@ function createPreview() {
 }
 function applySettings() {
   gridSize = parseInt(document.getElementById("gridSizeInput").value);
+  
+  // 1. сохранить текущую позицию куба
+  const prevPos = previewCube.position.clone();
+
+  // 2. обновить шаг сетки
   blockSize = Math.max(0.01, parseFloat(document.getElementById("blockSizeInput").value));
+
+  // 3. пересчитать позицию под новую сетку
+  previewCube.position.set(
+    Math.round(prevPos.x / blockSize) * blockSize,
+    Math.round(prevPos.y / blockSize) * blockSize,
+    Math.round(prevPos.z / blockSize) * blockSize
+  );
+
+  // 4. пересоздать сетку
   scene.remove(gridHelper);
   gridHelper = new THREE.GridHelper(gridSize, gridSize);
   scene.add(gridHelper);
-  createPreview();
+
+  // 5. обновить визуальный куб (без сброса позиции)
+  updatePreviewCube(); // ← если у тебя есть такая функция для обновления материалов/размера
 }
 createPreview();
 
