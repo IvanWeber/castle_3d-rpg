@@ -199,6 +199,8 @@ function cancelPasting() {
 }
 
 document.addEventListener("keydown", e => {
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return;
   if (e.key === "w") controls.forward = 1;
   if (e.key === "s") controls.forward = -1;
   if (e.key === "a") controls.strafe = -1;
@@ -227,6 +229,8 @@ document.addEventListener("keydown", e => {
   if (e.key === "Escape") cancelPasting();
 });
 document.addEventListener("keyup", e => {
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return;
   if (["w", "s"].includes(e.key)) controls.forward = 0;
   if (["a", "d"].includes(e.key)) controls.strafe = 0;
   if (["q", "e"].includes(e.key)) controls.up = 0;
@@ -235,6 +239,12 @@ document.addEventListener("keyup", e => {
   if (["PageUp", "PageDown"].includes(e.code)) ghostControls.y = 0;
 });
 document.addEventListener("mousedown", e => {
+  const ae = e.target;
+  if (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA") {
+    suppressClick = true;
+    return;
+  }
+
   mouseDown = true;
   if (e.target.tagName === "BUTTON") suppressClick = true;
 });
@@ -519,7 +529,9 @@ document.addEventListener("mousemove", e => {
   mouse.x = (e.clientX / innerWidth) * 2 - 1;
   mouse.y = -(e.clientY / innerHeight) * 2 + 1;
 });
-document.addEventListener("click", () => {
+document.addEventListener("click", e => {
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return;
   if (inputMode === "mouse" && !suppressClick) {
     placeBlock(previewCube.position);
   }
