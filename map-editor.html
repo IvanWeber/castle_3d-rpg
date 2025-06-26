@@ -276,6 +276,9 @@ let enemies = [];
 let npcs = [];
 let previewCube, previewEdge;
 function createPreview() {
+  // Сохраняем старую позицию (если была)
+  const oldPos = previewCube?.position.clone();
+
   if (previewCube) scene.remove(previewCube);
   if (previewEdge) scene.remove(previewEdge);
 
@@ -292,33 +295,50 @@ function createPreview() {
     new THREE.LineBasicMaterial({ color: 0xffff00 })
   );
 
+  // Возвращаем старую позицию, если была
+  if (oldPos) {
+    previewCube.position.copy(oldPos);
+    previewEdge.position.copy(oldPos);
+  }
+
   scene.add(previewCube);
   scene.add(previewEdge);
 }
+
 function applySettings() {
   gridSize = parseInt(document.getElementById("gridSizeInput").value);
-  
-  // 1. сохранить текущую позицию куба
-  const prevPos = previewCube.position.clone();
 
-  // 2. обновить шаг сетки
+  // 1. обновляем blockSize
   blockSize = Math.max(0.01, parseFloat(document.getElementById("blockSizeInput").value));
 
-  // 3. пересчитать позицию под новую сетку
-  previewCube.position.set(
-    Math.round(prevPos.x / blockSize) * blockSize,
-    Math.round(prevPos.y / blockSize) * blockSize,
-    Math.round(prevPos.z / blockSize) * blockSize
-  );
-
-  // 4. пересоздать сетку
+  // 2. пересоздаём сетку
   scene.remove(gridHelper);
   gridHelper = new THREE.GridHelper(gridSize, gridSize);
   scene.add(gridHelper);
 
-  // 5. обновить визуальный куб (без сброса позиции)
-  updatePreviewCube(); // ← если у тебя есть такая функция для обновления материалов/размера
+  // 3. пересоздаём previewCube и previewEdge с новой геометрией
+  createPreview();
+
+  // 4. пересчитываем позицию по raycaster
+  if (inputMode === "mouse") {
+    raycaster.setFromCamera(mouse, camera);
+    const intersectPoint = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(10));
+    const snapped = intersectPoint.clone().divideScalar(blockSize).floor().multiplyScalar(blockSize).addScalar(blockSize / 2);
+    previewCube.position.copy(snapped);
+    previewEdge.position.copy(snapped);
+  } else {
+    // В режиме клавиатуры — округляем текущую позицию
+    previewCube.position.set(
+      Math.round(previewCube.position.x / blockSize) * blockSize,
+      Math.round(previewCube.position.y / blockSize) * blockSize,
+      Math.round(previewCube.position.z / blockSize) * blockSize
+    );
+    previewEdge.position.copy(previewCube.position);
+  }
+
+  if (pastePreviewGroup) updatePastePreviewPosition();
 }
+
 createPreview();
 
 
