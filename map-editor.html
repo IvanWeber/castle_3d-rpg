@@ -474,7 +474,7 @@ function updateCodeOutput() {
     code += `        ${n.name}QuestGiven = true;\n`;
     code += `        // Вставка второго диалога с задержкой, чтобы не перекрыть предыдущий\n`;
     code += `        setTimeout(() => {\n`;
-    code += `          showDialogue("Отлично. Найдите и устраните 3 крысы в подвале.", ["Хорошо"]);\n`;
+    code += `          showDialogue("Отлично. Найдите и устраните врага enemy1.", ["Хорошо"]);\n`;
     code += `        }, 0);\n`;
     code += `      } else {\n`;
     code += `        showDialogue("Жаль. Мы надеялись на вас.", ["Уйти"]);\n`;
@@ -482,7 +482,12 @@ function updateCodeOutput() {
     code += `    });\n\n`;
 
     code += `  } else if (!${n.name}QuestComplete) {\n`;
-    code += `    showDialogue("Вы ещё не выполнили задание. Найдите 3 крысы.", ["Понял"]);\n\n`;
+    code += `    if (enemy1 && !enemy1.alive) {\n`;
+    code += `      ${n.name}QuestComplete = true;\n`;
+    code += `    } else {\n`;
+    code += `      showDialogue("Вы ещё не выполнили задание. Устраните enemy1.", ["Понял"]);\n`;
+    code += `      return;\n`;
+    code += `    }\n\n`;
 
     code += `  } else if (!${n.name}RewardGiven) {\n`;
     code += `    showDialogue("Отличная работа. Вот награда: 20 золотых.", ["Спасибо"], () => {\n`;
@@ -495,7 +500,6 @@ function updateCodeOutput() {
     code += `  } else {\n`;
     code += `    showDialogue("Благодарим ещё раз за помощь.", ["До встречи"]);\n`;
     code += `  }\n`;
-
     code += `});\n\n`;
   }
 
