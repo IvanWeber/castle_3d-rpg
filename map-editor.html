@@ -37,6 +37,17 @@
       margin-top: 5px;
       border-radius: 50%;
     }
+    #colorPickerDot {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border: 2px solid white;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 20;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -50,6 +61,7 @@
   <div>
     Цвет:
     <canvas id="colorWheel" width="150" height="150"></canvas>
+    <div id="colorPickerDot"></div>
   </div>
   <div>
     Яркость:
@@ -134,12 +146,20 @@ colorWheel.addEventListener("click", e => {
   const y = e.clientY - rect.top;
   const dx = x - colorWheel.width / 2;
   const dy = y - colorWheel.height / 2;
-  const dist = Math.sqrt(dx*dx + dy*dy);
-  if (dist > colorWheel.width/2) return;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist > colorWheel.width / 2) return;
+
   let angle = Math.atan2(dy, dx);
   if (angle < 0) angle += 2 * Math.PI;
   selectedHue = angle * 180 / Math.PI;
+
+  // === Показываем маркер выбора
+  const dot = document.getElementById("colorPickerDot");
+  dot.style.left = `${e.clientX}px`;
+  dot.style.top = `${e.clientY}px`;
+  dot.style.display = "block";
 });
+
 document.getElementById("brightnessInput").addEventListener("input", e => {
   selectedBrightness = parseFloat(e.target.value) / 100;
   drawColorWheel();
