@@ -82,6 +82,7 @@
   <button onclick="copyCode()">Скопировать код</button>
   <button onclick="removeEnemy()">Удалить врага</button>
   <button onclick="saveFinalHTML()">Сохранить финальный HTML</button>
+  <button onclick="setSkyColor()">Установить цвет неба</button>
   <div>
     Радиус копирования: <input type="number" id="copyRangeInput" value="3">
   </div>
@@ -98,6 +99,7 @@
 document.addEventListener("contextmenu", e => e.preventDefault());
 
 let gridSize = 100;
+let skyColorHex = null;
 let blockSize = 2;
 let inputMode = "keyboard";
 let suppressClick = false;
@@ -446,6 +448,11 @@ function removeEnemy() {
 function updateCodeOutput() {
   let code = '';
 
+  if (skyColorHex !== null) {
+    const colorHex = "0x" + skyColorHex.toString(16).padStart(6, '0');
+    code += `scene.background = new THREE.Color(${colorHex});\n`;
+  }
+
   // Блоки
   for (const b of placed) {
     const colorHex = "0x" + b.color.toString(16).padStart(6, '0');
@@ -518,6 +525,13 @@ function updateCodeOutput() {
   }
 
   document.getElementById("codeOutput").value = code;
+}
+
+function setSkyColor() {
+  const color = hsvToHex(selectedHue, 1, selectedBrightness); // получаем цвет из цветового круга
+  skyColorHex = color; // сохраняем его в переменную
+  scene.background = new THREE.Color(color); // применяем к сцене
+  updateCodeOutput(); // обновляем аутпут
 }
 
 
