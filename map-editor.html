@@ -377,7 +377,8 @@ function addNPC() {
   }
 
   const geom = new THREE.CapsuleGeometry(0.5, 1, 4, 8);
-  const mat = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+  const color = hsvToHex(selectedHue, 1, selectedBrightness);
+  const mat = new THREE.MeshStandardMaterial({ color });
   const npc = new THREE.Mesh(geom, mat);
   npc.position.copy(previewCube.position);
   scene.add(npc);
@@ -392,7 +393,7 @@ function addNPC() {
   div.dataset.npcName = name;
   document.body.appendChild(div);
 
-  npcs.push({ x: npc.position.x, y: npc.position.y, z: npc.position.z, name });
+  npcs.push({ x: npc.position.x, y: npc.position.y, z: npc.position.z, name, color });
   updateCodeOutput();
 }
 
@@ -475,7 +476,8 @@ function updateCodeOutput() {
     code += `let ${n.name}QuestComplete = false;\n`;
     code += `let ${n.name}RewardGiven = false;\n\n`;
 
-    code += `const ${n.name} = createNPC(${n.x}, ${n.y}, ${n.z}, 0xffff00, () => {\n`;
+    const colorHex = "0x" + (n.color?.toString(16).padStart(6, '0') || "ffff00");
+    code += `const ${n.name} = createNPC(${n.x}, ${n.y}, ${n.z}, ${colorHex}, () => {\n`;
     code += `  // === Диалог NPC "${n.name}" ===\n`;
     code += `  // Используйте переменные ниже для логики квеста:\n`;
     code += `  // ${n.name}QuestGiven, ${n.name}QuestComplete, ${n.name}RewardGiven\n\n`;
