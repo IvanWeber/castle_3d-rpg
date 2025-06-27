@@ -486,7 +486,7 @@ function updateCodeOutput() {
 
   if (skyColorHex !== null) {
     const colorHex = "0x" + skyColorHex.toString(16).padStart(6, '0');
-    code += `scene.background = new THREE.Color(${colorHex});\n`;
+    code += `scene2.background = new THREE.Color(${colorHex});\n`;
   }
 
   // Блоки
