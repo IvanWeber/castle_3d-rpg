@@ -307,6 +307,25 @@ function createPreview() {
   scene.add(previewEdge);
 }
 
+
+function createDirectionArrow(parent, rotationDeg = 0, color = 0xff0000) {
+  const coneGeo = new THREE.ConeGeometry(0.3, 1, 8);
+  const coneMat = new THREE.MeshBasicMaterial({ color });
+  const cone = new THREE.Mesh(coneGeo, coneMat);
+
+  // Повернём конус вперёд (вдоль Z), а не вверх по умолчанию (вдоль Y)
+  cone.rotation.x = Math.PI / 2;
+
+  // Поднимем над головой
+  cone.position.set(0, 2.5, 0);
+
+  // Поворот вокруг Y — теперь он действительно указывает по Z
+  cone.rotation.y = THREE.MathUtils.degToRad(rotationDeg);
+
+  parent.add(cone);
+  return cone;
+}
+
 function applySettings() {
   gridSize = parseInt(document.getElementById("gridSizeInput").value);
 
@@ -425,6 +444,7 @@ function addNPC() {
   npc.position.copy(previewCube.position);
   npc.rotation.y = THREE.MathUtils.degToRad(rotation);
   scene.add(npc);
+  createDirectionArrow(npc, rotation, 0xffff00); // жёлтая стрелка для NPC
 
   // === Имя над NPC
   const div = document.createElement("div");
@@ -471,6 +491,7 @@ function addEnemy() {
   enemy.position.copy(previewCube.position);
   enemy.rotation.y = THREE.MathUtils.degToRad(rotation);
   scene.add(enemy);
+  createDirectionArrow(enemy, rotation, 0xff0000); // красная стрелка для врага
 
   // === Имя над врагом (как у NPC)
   if (name) {
@@ -1364,6 +1385,9 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   let dragonQuestGiven = false;
   let dragonDefeated = false;
   let mountainPassOpened = false;
+
+
+  
 
 
   function createNPC(x, y, z, color, talkFn) {
