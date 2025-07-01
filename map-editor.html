@@ -90,8 +90,10 @@
 
   <button onclick="addNPC()">Добавить NPC</button>
   <input type="text" id="npcNameInput" placeholder="Имя NPC" style="width: 100px; margin-top:4px;">
+  Угол NPC: <input type="number" id="npcRotationInput" value="0" style="width: 60px;">
   <button onclick="addEnemy()">Добавить врага</button>
   <input type="text" id="enemyNameInput" placeholder="Имя врага" style="width: 100px; margin-top:4px;">
+  Угол врага: <input type="number" id="enemyRotationInput" value="0" style="width: 60px;">
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
@@ -409,6 +411,8 @@ function addPlayer() {
 
 function addNPC() {
   const name = document.getElementById("npcNameInput").value.trim();
+  const rotation = parseFloat(document.getElementById("npcRotationInput")?.value || "0");
+
   if (!name) {
     alert("Введите имя NPC.");
     return;
@@ -419,9 +423,10 @@ function addNPC() {
   const mat = new THREE.MeshStandardMaterial({ color });
   const npc = new THREE.Mesh(geom, mat);
   npc.position.copy(previewCube.position);
+  npc.rotation.y = THREE.MathUtils.degToRad(rotation);
   scene.add(npc);
 
-  // Текстовое имя над NPC
+  // === Имя над NPC
   const div = document.createElement("div");
   div.textContent = name;
   div.style.position = "absolute";
@@ -431,27 +436,72 @@ function addNPC() {
   div.dataset.npcName = name;
   document.body.appendChild(div);
 
-  npcs.push({ x: npc.position.x, y: npc.position.y, z: npc.position.z, name, color });
+  // === Стрелка направления
+  const arrow = document.createElement("div");
+  arrow.style.position = "absolute";
+  arrow.style.width = "0";
+  arrow.style.height = "0";
+  arrow.style.border = "10px solid transparent";
+  arrow.style.borderBottomColor = "red";
+  arrow.style.pointerEvents = "none";
+  arrow.dataset.directionArrow = name;
+  document.body.appendChild(arrow);
+
+  npcs.push({
+    x: npc.position.x,
+    y: npc.position.y,
+    z: npc.position.z,
+    name,
+    color,
+    rotation
+  });
+
   updateCodeOutput();
 }
 
 
 function addEnemy() {
+  const name = document.getElementById("enemyNameInput").value.trim();
+  const rotation = parseFloat(document.getElementById("enemyRotationInput")?.value || "0");
+
   const geom = new THREE.CapsuleGeometry(0.5, 1, 4, 8);
   const color = hsvToHex(selectedHue, 1, selectedBrightness);
   const mat = new THREE.MeshStandardMaterial({ color });
   const enemy = new THREE.Mesh(geom, mat);
   enemy.position.copy(previewCube.position);
+  enemy.rotation.y = THREE.MathUtils.degToRad(rotation);
   scene.add(enemy);
 
-  const name = document.getElementById("enemyNameInput").value.trim();
+  // === Имя над врагом (как у NPC)
+  if (name) {
+    const div = document.createElement("div");
+    div.textContent = name;
+    div.style.position = "absolute";
+    div.style.color = "red";
+    div.style.fontSize = "14px";
+    div.style.pointerEvents = "none";
+    div.dataset.npcName = name;
+    document.body.appendChild(div);
+
+    // === Стрелка направления
+    const arrow = document.createElement("div");
+    arrow.style.position = "absolute";
+    arrow.style.width = "0";
+    arrow.style.height = "0";
+    arrow.style.border = "10px solid transparent";
+    arrow.style.borderBottomColor = "red";
+    arrow.style.pointerEvents = "none";
+    arrow.dataset.directionArrow = name;
+    document.body.appendChild(arrow);
+  }
 
   enemies.push({
     x: enemy.position.x,
     y: enemy.position.y,
     z: enemy.position.z,
     color,
-    name
+    name,
+    rotation
   });
 
   updateCodeOutput();
@@ -505,10 +555,14 @@ function updateCodeOutput() {
   for (const e of enemies) {
     const colorHex = "0x" + e.color.toString(16).padStart(6, '0');
     const name = e.name?.trim();
+    const rotation = e.rotation || 0;
+
     if (name) {
       code += `let ${name} = createNamedEnemy("${name}", ${e.x}, ${e.y}, ${e.z}, ${colorHex});\n`;
+      code += `${name}.rotation.y = THREE.MathUtils.degToRad(${rotation});\n`;
     } else {
-      code += `createBandit(${e.x}, ${e.z}, ${colorHex});\n`;
+      code += `const b = createBandit(${e.x}, ${e.z}, ${colorHex});\n`;
+      code += `b.rotation.y = THREE.MathUtils.degToRad(${rotation});\n`;
     }
   }
 
@@ -558,6 +612,8 @@ function updateCodeOutput() {
     code += `    showDialogue("Благодарим ещё раз за помощь.", ["До встречи"]);\n`;
     code += `  }\n`;
     code += `});\n\n`;
+    
+    code += `${n.name}.group.rotation.y = THREE.MathUtils.degToRad(${n.rotation || 0});\n`;
   }
 
   document.getElementById("codeOutput").value = code;
@@ -710,6 +766,26 @@ function animate() {
       div.style.display = "block";
     }
   });
+
+    document.querySelectorAll("[data-direction-arrow]").forEach(div => div.style.display = "none");
+
+    [...npcs, ...enemies].forEach(obj => {
+      const world = new THREE.Vector3(obj.x, obj.y + 3, obj.z);
+      const screen = world.project(camera);
+      const x = (screen.x * 0.5 + 0.5) * window.innerWidth;
+      const y = (-screen.y * 0.5 + 0.5) * window.innerHeight;
+
+      const arrow = [...document.querySelectorAll("[data-direction-arrow]")]
+        .find(d => d.dataset.directionArrow === obj.name);
+      if (arrow) {
+        arrow.style.left = `${x}px`;
+        arrow.style.top = `${y}px`;
+        arrow.style.display = "block";
+        const angleDeg = obj.rotation || 0;
+        arrow.style.transform = `translate(-50%, -50%) rotate(${angleDeg}deg)`;
+      }
+    });
+
 
 
   renderer.render(scene, camera);
