@@ -1931,6 +1931,8 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 
 
     if (enemyInside && enemyInside.alive) {
+      const deltaY = Math.abs(player.position.y - enemyInside.position.y);
+      if (deltaY > 2.5) return;
       chase(enemyInside);
       updateHealthBar(enemyInside);
       if (player.position.distanceTo(enemyInside.position) < 2) {
@@ -2062,6 +2064,9 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 
     allEnemies.forEach(enemy => {
       if (!enemy.alive) return;
+
+      const deltaY = Math.abs(player.position.y - enemy.position.y);
+      if (deltaY > 2.5) return;
 
       const dir = player.position.clone().sub(enemy.position);
       dir.y = 0;
