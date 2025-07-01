@@ -788,25 +788,6 @@ function animate() {
     }
   });
 
-    document.querySelectorAll("[data-direction-arrow]").forEach(div => div.style.display = "none");
-
-    [...npcs, ...enemies].forEach(obj => {
-      const world = new THREE.Vector3(obj.x, obj.y + 3, obj.z);
-      const screen = world.project(camera);
-      const x = (screen.x * 0.5 + 0.5) * window.innerWidth;
-      const y = (-screen.y * 0.5 + 0.5) * window.innerHeight;
-
-      const arrow = [...document.querySelectorAll("[data-direction-arrow]")]
-        .find(d => d.dataset.directionArrow === obj.name);
-      if (arrow) {
-        arrow.style.left = `${x}px`;
-        arrow.style.top = `${y}px`;
-        arrow.style.display = "block";
-        const angleDeg = obj.rotation || 0;
-        arrow.style.transform = `translate(-50%, -50%) rotate(${angleDeg}deg)`;
-      }
-    });
-
 
 
   renderer.render(scene, camera);
