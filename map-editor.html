@@ -326,6 +326,26 @@ function createDirectionArrow(parent, rotationDeg = 0, color = 0xff0000) {
   return cone;
 }
 
+function createPlayerDirectionArrow(rotationDeg = 0, color = 0x00b300) {
+  const coneGeo = new THREE.ConeGeometry(0.3, 1, 8);
+  const coneMat = new THREE.MeshBasicMaterial({ color });
+  const cone = new THREE.Mesh(coneGeo, coneMat);
+
+  // Повернём конус вперёд (вдоль Z), а не вверх по умолчанию (вдоль Y)
+  cone.rotation.x = Math.PI / 2;
+
+  // Поднимем над головой
+  cone.position.set(0, 2.5, 0);
+
+  // Поворот вокруг Y — теперь он действительно указывает по Z
+  cone.rotation.y = 0;
+  cone.rotation.z = THREE.MathUtils.degToRad(rotationDeg);
+
+  scene.add(cone);
+}
+createPlayerDirectionArrow(180)
+
+
 function applySettings() {
   gridSize = parseInt(document.getElementById("gridSizeInput").value);
 
@@ -540,8 +560,27 @@ function removeEnemy() {
   }
 }
 
+
+
 function updateCodeOutput() {
   let code = '';
+
+  let isInit = true;
+  if  (isInit) {
+    code += `introOverlay.innerHTML = '
+    <div>
+      <h2 style="margin-top:0">Вызов в Замок</h2>
+      <p>Вы — Ганс Таппенцаль, по приказу направлены в эти земли. Вы должны прибыть в замок и ожидать дальнейших указаний.</p>
+      <p>Однако вас не пропускают. Староста просит помощи с волками в западном лесу. Без его письма охрана замка не пустит вас внутрь.</p>
+      <p>После выполнения задачи появится возможность войти и продолжить выполнение задания.</p>
+      <p style="margin-top:20px;"><em>E - для взаимодйствия с окружением</em></p>
+      <p style="margin-top:20px;"><em>I - для смены оружия в инвентаре</em></p>
+      <p style="margin-top:20px;"><em>Enter - для закрытия текущего диалога</em></p>
+      <p style="margin-top:20px;"><em>Нажмите Enter (или A на геймпаде), чтобы начать</em></p>
+    </div>
+  '`;
+    isInit = false;
+  }
 
   if (skyColorHex !== null) {
     const colorHex = "0x" + skyColorHex.toString(16).padStart(6, '0');
@@ -627,6 +666,8 @@ function updateCodeOutput() {
 
   document.getElementById("codeOutput").value = code;
 }
+
+updateCodeOutput()
 
 function setSkyColor() {
   const color = hsvToHex(selectedHue, 1, selectedBrightness); // получаем цвет из цветового круга
