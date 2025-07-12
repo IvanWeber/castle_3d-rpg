@@ -578,7 +578,7 @@ function updateCodeOutput() {
       <p style="margin-top:20px;"><em>Enter - для закрытия текущего диалога</em></p>
       <p style="margin-top:20px;"><em>Нажмите Enter (или A на геймпаде), чтобы начать</em></p>
     </div>
-  \``;
+  \`\n`;
     isInit = false;
   }
 
@@ -602,7 +602,7 @@ function updateCodeOutput() {
   // Враги
   for (const e of enemies) {
     const colorHex = "0x" + e.color.toString(16).padStart(6, '0');
-    const name = e.name?.trim();
+    const name = e.name?.trim().replace(/\s+/g, '');
     const rotation = e.rotation || 0;
 
     if (name) {
@@ -2042,8 +2042,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       <p style="margin-top:20px;"><em>I - для смены оружия в инвентаре</em></p>
       <p style="margin-top:20px;"><em>Enter - для закрытия текущего диалога</em></p>
       <p style="margin-top:20px;"><em>Нажмите Enter (или A на геймпаде), чтобы начать</em></p>
-    </div>
-  `;
+    </div>\n`;
   document.body.appendChild(introOverlay);
 
   function closeIntro() {
