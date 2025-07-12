@@ -567,7 +567,7 @@ function updateCodeOutput() {
 
   let isInit = true;
   if  (isInit) {
-    code += `introOverlay.innerHTML = '
+    code += `introOverlay.innerHTML = \`
     <div>
       <h2 style="margin-top:0">Вызов в Замок</h2>
       <p>Вы — Ганс Таппенцаль, по приказу направлены в эти земли. Вы должны прибыть в замок и ожидать дальнейших указаний.</p>
@@ -578,7 +578,7 @@ function updateCodeOutput() {
       <p style="margin-top:20px;"><em>Enter - для закрытия текущего диалога</em></p>
       <p style="margin-top:20px;"><em>Нажмите Enter (или A на геймпаде), чтобы начать</em></p>
     </div>
-  '`;
+  \``;
     isInit = false;
   }
 
