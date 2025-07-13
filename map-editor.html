@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Редактор карты — Радужный Круг</title>
+  <title>Simplicissimus.js</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -18,7 +18,7 @@
     }
     #codeOutput {
       font-family: monospace;
-      background: rgba(0, 0, 0, 0.4); /* такая же полупрозрачность как у #ui */
+      background: rgba(0, 0, 0, 0.4); /* the same translucency as #ui */
       color: #eee;
       padding: 10px;
       margin-top: 10px;
@@ -27,7 +27,7 @@
       height: 200px;
       resize: vertical;
       border: none;
-      white-space: pre; /* для отображения форматирования кода */
+      white-space: pre; /* to display code formatting */
       overflow-y: auto;
     }
     input[type="number"] { width: 60px; }
@@ -55,45 +55,45 @@
 <body>
 <div id="ui">
   <div>
-    Размер блока:
+    Block size:
     X: <input type="number" id="sizeXInput" value="2" step="0.1" style="width: 50px;">
     Y: <input type="number" id="sizeYInput" value="2" step="0.1" style="width: 50px;">
     Z: <input type="number" id="sizeZInput" value="2" step="0.1" style="width: 50px;">
   </div>
   <div>
-    Цвет:
+    Color:
     <canvas id="colorWheel" width="150" height="150"></canvas>
     <div id="colorPickerDot"></div>
   </div>
   <div>
-    Яркость:
+    Brightness:
     <input type="range" id="brightnessInput" min="0" max="100" value="70">
   </div>
   <div>
     Grid: <input type="number" id="gridSizeInput" value="100">
-    Блок: <input type="number" id="blockSizeInput" value="2" step="0.1">
-    <button onclick="applySettings()">Применить</button>
+    Grid-step: <input type="number" id="blockSizeInput" value="2" step="0.1">
+    <button onclick="applySettings()">Apply</button>
   </div>
-  <button onclick="toggleInputMode()" id="modeButton">Режим: Мышь</button>
-  <button onclick="addPlayer()">Добавить игрока</button>
-  <button onclick="copyFragment()">Копировать фрагмент</button>
-  <button onclick="startPasting()">Вставить фрагмент</button>
-  <button onclick="cancelPasting()">Отменить вставку</button>
-  <button onclick="copyCode()">Скопировать код</button>
-  <button onclick="removeEnemy()">Удалить врага</button>
-  <button onclick="saveFinalHTML()">Сохранить финальный HTML</button>
-  <button onclick="setSkyColor()">Установить цвет неба</button>
+  <button onclick="toggleInputMode()" id="modeButton">Mode: Mouse</button>
+  <button onclick="addPlayer()">Add player</button>
+  <button onclick="copyFragment()">Copy fragment</button>
+  <button onclick="startPasting()">Paste fragment</button>
+  <button onclick="cancelPasting()">Undo Paste</button>
+  <button onclick="copyCode()">Copy Code</button>
+  <button onclick="removeEnemy()">Remove enemy</button>
+  <button onclick="saveFinalHTML()">Save final HTML</button>
+  <button onclick="setSkyColor()">Set sky color</button>
   <div>
-    Радиус копирования: <input type="number" id="copyRangeInput" value="3">
+    Copy radius: <input type="number" id="copyRangeInput" value="3">
   </div>
   <textarea id="codeOutput"></textarea>
 
-  <button onclick="addNPC()">Добавить NPC</button>
+  <button onclick="addNPC()">Add NPC</button>
   <input type="text" id="npcNameInput" placeholder="Имя NPC" style="width: 100px; margin-top:4px;">
   Угол NPC: <input type="number" id="npcRotationInput" value="0" style="width: 60px;">
-  <button onclick="addEnemy()">Добавить врага</button>
+  <button onclick="addEnemy()">Add enemy</button>
   <input type="text" id="enemyNameInput" placeholder="Имя врага" style="width: 100px; margin-top:4px;">
-  Угол врага: <input type="number" id="enemyRotationInput" value="0" style="width: 60px;">
+  Enemy angle: <input type="number" id="enemyRotationInput" value="0" style="width: 60px;">
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
@@ -160,7 +160,7 @@ colorWheel.addEventListener("click", e => {
   if (angle < 0) angle += 2 * Math.PI;
   selectedHue = angle * 180 / Math.PI;
 
-  // === Показываем маркер выбора
+  // === Show the selection marker
   const dot = document.getElementById("colorPickerDot");
   dot.style.left = `${e.clientX}px`;
   dot.style.top = `${e.clientY}px`;
@@ -268,7 +268,7 @@ document.addEventListener("mousemove", e => {
 
 function toggleInputMode() {
   inputMode = inputMode === "mouse" ? "keyboard" : "mouse";
-  document.getElementById("modeButton").textContent = "Режим: " + (inputMode === "mouse" ? "Мышь" : "Клавиши");
+  document.getElementById("modeButton").textContent = "Mode: " + (inputMode === "mouse" ? "Mouse" : "Keys");
 }
 
 let placed = [];
@@ -278,7 +278,7 @@ let enemies = [];
 let npcs = [];
 let previewCube, previewEdge;
 function createPreview() {
-  // Сохраняем старую позицию (если была)
+  // Keep the old position (if there was one)
   const oldPos = previewCube?.position.clone();
 
   if (previewCube) scene.remove(previewCube);
@@ -297,7 +297,7 @@ function createPreview() {
     new THREE.LineBasicMaterial({ color: 0xffff00 })
   );
 
-  // Возвращаем старую позицию, если была
+  // Return the old position, if there was one
   if (oldPos) {
     previewCube.position.copy(oldPos);
     previewEdge.position.copy(oldPos);
@@ -313,13 +313,13 @@ function createDirectionArrow(parent, rotationDeg = 0, color = 0xff0000) {
   const coneMat = new THREE.MeshBasicMaterial({ color });
   const cone = new THREE.Mesh(coneGeo, coneMat);
 
-  // Повернём конус вперёд (вдоль Z), а не вверх по умолчанию (вдоль Y)
+  // Rotate the cone forward (along Z) instead of the default upward (along Y)
   cone.rotation.x = Math.PI / 2;
 
-  // Поднимем над головой
+  // raise it above head
   cone.position.set(0, 2.5, 0);
 
-  // Поворот вокруг Y — теперь он действительно указывает по Z
+  // Rotate around Y - now it actually points to Z
   cone.rotation.y = THREE.MathUtils.degToRad(rotationDeg);
 
   parent.add(cone);
@@ -331,13 +331,13 @@ function createPlayerDirectionArrow(rotationDeg = 0, color = 0x00b300) {
   const coneMat = new THREE.MeshBasicMaterial({ color });
   const cone = new THREE.Mesh(coneGeo, coneMat);
 
-  // Повернём конус вперёд (вдоль Z), а не вверх по умолчанию (вдоль Y)
+  // rotate the cone forward (along Z) instead of the default upward (along Y)
   cone.rotation.x = Math.PI / 2;
 
-  // Поднимем над головой
+  // raise it above head
   cone.position.set(0, 2.5, 0);
 
-  // Поворот вокруг Y — теперь он действительно указывает по Z
+  // Rotate around Y - now it actually points to Z
   cone.rotation.y = 0;
   cone.rotation.z = THREE.MathUtils.degToRad(rotationDeg);
 
@@ -349,18 +349,18 @@ createPlayerDirectionArrow(180)
 function applySettings() {
   gridSize = parseInt(document.getElementById("gridSizeInput").value);
 
-  // 1. обновляем blockSize
+  // 1. update blockSize
   blockSize = Math.max(0.01, parseFloat(document.getElementById("blockSizeInput").value));
 
-  // 2. пересоздаём сетку
+  // 2. recreate grid
   scene.remove(gridHelper);
   gridHelper = new THREE.GridHelper(gridSize, gridSize);
   scene.add(gridHelper);
 
-  // 3. пересоздаём previewCube и previewEdge с новой геометрией
+  // 3. recreate previewCube and previewEdge with new geometry
   createPreview();
 
-  // 4. пересчитываем позицию по raycaster
+  // 4. recalculate position by raycaster
   if (inputMode === "mouse") {
     raycaster.setFromCamera(mouse, camera);
     const intersectPoint = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(10));
@@ -368,7 +368,7 @@ function applySettings() {
     previewCube.position.copy(snapped);
     previewEdge.position.copy(snapped);
   } else {
-    // В режиме клавиатуры — округляем текущую позицию
+    // In keyboard mode - round the current position
     previewCube.position.set(
       Math.round(previewCube.position.x / blockSize) * blockSize,
       Math.round(previewCube.position.y / blockSize) * blockSize,
@@ -398,8 +398,8 @@ function placeBlock(position) {
     new THREE.MeshStandardMaterial({ color })
   );
 
-  // Было: block.position.copy(position).divideScalar(1).floor().addScalar(0.5);
-  block.position.copy(position); // ← Исправление
+  // Was: block.position.copy(position).divideScalar(1).floor().addScalar(0.5);
+  block.position.copy(position); // ← Correction
 
   scene.add(block);
 
@@ -453,7 +453,7 @@ function addNPC() {
   const rotation = parseFloat(document.getElementById("npcRotationInput")?.value || "0");
 
   if (!name) {
-    alert("Введите имя NPC.");
+    alert("Input NPC name.");
     return;
   }
 
@@ -464,9 +464,9 @@ function addNPC() {
   npc.position.copy(previewCube.position);
   npc.rotation.y = THREE.MathUtils.degToRad(rotation);
   scene.add(npc);
-  createDirectionArrow(npc, rotation, 0xffff00); // жёлтая стрелка для NPC
+  createDirectionArrow(npc, rotation, 0xffff00); // yellow arrow for NPC
 
-  // === Имя над NPC
+  // === Name above NPC
   const div = document.createElement("div");
   div.textContent = name;
   div.style.position = "absolute";
@@ -476,7 +476,7 @@ function addNPC() {
   div.dataset.npcName = name;
   document.body.appendChild(div);
 
-  // === Стрелка направления
+  // === Direction arrow
   const arrow = document.createElement("div");
   arrow.style.position = "absolute";
   arrow.style.width = "0";
@@ -511,9 +511,9 @@ function addEnemy() {
   enemy.position.copy(previewCube.position);
   enemy.rotation.y = THREE.MathUtils.degToRad(rotation);
   scene.add(enemy);
-  createDirectionArrow(enemy, rotation, 0xff0000); // красная стрелка для врага
+  createDirectionArrow(enemy, rotation, 0xff0000); // red arrow for enemy
 
-  // === Добавляем имя врага
+  // === Add the enemy's name
   const label = document.createElement("div");
   label.dataset.enemyName = name;
   label.textContent = name;
@@ -569,14 +569,14 @@ function updateCodeOutput() {
   if  (isInit) {
     code += `introOverlay.innerHTML = \`
     <div>
-      <h2 style="margin-top:0">Вызов в Замок</h2>
-      <p>Вы — Ганс Таппенцаль, по приказу направлены в эти земли. Вы должны прибыть в замок и ожидать дальнейших указаний.</p>
-      <p>Однако вас не пропускают. Староста просит помощи с волками в западном лесу. Без его письма охрана замка не пустит вас внутрь.</p>
-      <p>После выполнения задачи появится возможность войти и продолжить выполнение задания.</p>
-      <p style="margin-top:20px;"><em>E - для взаимодйствия с окружением</em></p>
-      <p style="margin-top:20px;"><em>I - для смены оружия в инвентаре</em></p>
-      <p style="margin-top:20px;"><em>Enter - для закрытия текущего диалога</em></p>
-      <p style="margin-top:20px;"><em>Нажмите Enter (или A на геймпаде), чтобы начать</em></p>
+      <h2 style="margin-top:0">Call to the Castle</h2>
+      <p>You are Hans Tappenzahl, sent to these lands by order. You must report to the castle and await further instructions.</p>
+      <p>owever, you are not allowed in. The mayor asks for help with the wolves in the western forest. Without his letter, the castle guards will not let you in.</p>
+      <p>After completing the task, you will be able to log in and continue completing the task.</p>
+      <p style="margin-top:20px;"><em>E - for interaction with the environment</em></p>
+      <p style="margin-top:20px;"><em>I - to change weapons in inventory</em></p>
+      <p style="margin-top:20px;"><em>Enter - to close the current dialog</em></p>
+      <p style="margin-top:20px;"><em>Press Enter (or A on a controller) to start</em></p>
     </div>
   \`\n`;
     isInit = false;
@@ -587,19 +587,19 @@ function updateCodeOutput() {
     code += `scene2.background = new THREE.Color(${colorHex});\n`;
   }
 
-  // Блоки
+  // Blocks
   for (const b of placed) {
     const colorHex = "0x" + b.color.toString(16).padStart(6, '0');
     code += `buildWall(${b.x}, ${b.y}, ${b.z}, ${b.sx}, ${b.sy}, ${b.sz}, ${colorHex});\n`;
   }
 
-  // Позиция игрока
+  // Player position
   if (playerMarker) {
     const p = playerMarker.position;
     code += `setPlayerPosition(${p.x}, ${p.y}, ${p.z});\n`;
   }
 
-  // Враги
+  // Enemies
   for (const e of enemies) {
     const colorHex = "0x" + e.color.toString(16).padStart(6, '0');
     const name = e.name?.trim().replace(/\s+/g, '');
@@ -616,7 +616,7 @@ function updateCodeOutput() {
 
   // NPC
   for (const n of npcs) {
-    // Флаги
+    // Flags
     code += `let ${n.name}QuestGiven = false;\n`;
     code += `let ${n.name}QuestComplete = false;\n`;
     code += `let ${n.name}RewardGiven = false;\n\n`;
@@ -670,10 +670,10 @@ function updateCodeOutput() {
 updateCodeOutput()
 
 function setSkyColor() {
-  const color = hsvToHex(selectedHue, 1, selectedBrightness); // получаем цвет из цветового круга
-  skyColorHex = color; // сохраняем его в переменную
-  scene.background = new THREE.Color(color); // применяем к сцене
-  updateCodeOutput(); // обновляем аутпут
+  const color = hsvToHex(selectedHue, 1, selectedBrightness); //  get color from the color wheel
+  skyColorHex = color; // save it in a variable
+  scene.background = new THREE.Color(color); // apply to scene
+  updateCodeOutput(); // update output
 }
 
 
@@ -681,7 +681,7 @@ function setSkyColor() {
 
 function copyCode() {
   const code = document.getElementById("codeOutput").textContent;
-  navigator.clipboard.writeText(code).then(() => alert("Код скопирован!"));
+  navigator.clipboard.writeText(code).then(() => alert("Code copied!"));
 }
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -714,7 +714,7 @@ function copyFragment() {
       sz: b.sz,
       color: b.color
     }));
-  alert(`Скопировано блоков: ${copiedBlocks.length}`);
+  alert(`Copied blocks: ${copiedBlocks.length}`);
 }
 function startPasting() {
   if (copiedBlocks.length === 0) return;
@@ -738,7 +738,7 @@ function pasteFragment() {
 
   const base = previewCube.position.clone();
 
-  // Используем позиции из призрачных блоков
+  // Using positions from ghost blocks
   for (let i = 0; i < pastePreviewGroup.children.length; i++) {
     const ghost = pastePreviewGroup.children[i];
     const b = copiedBlocks[i];
@@ -863,7 +863,7 @@ function saveFinalHTML() {
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>3D RPG — всё вместе</title>
+  <title>3D RPG engine Simplicissimus.js</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -889,13 +889,13 @@ function saveFinalHTML() {
 </head>
 <body>
 <div id="ui">
-  <div>Золото: <span id="gold">0</span></div>
-  <div>Инвентарь: <span id="inv">пусто</span></div>
+  <div>Gold: <span id="gold">0</span></div>
+  <div>Inventory: <span id="inv">empty</span></div>
   <div id="health">❤️❤️❤️❤️❤️</div>
   <div id="dialogue"></div>
 </div>
 <div id="redFlash"></div>
-<!-- Локальная копия Three.js (r158), чтобы не зависеть от CDN -->
+<!-- Local copy of Three.js (r158) to avoid CDN dependency -->
 <script>
   console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
 /**
@@ -915,15 +915,15 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   const renderer2 = new THREE.WebGLRenderer();
   renderer2.setSize(window.innerWidth, window.innerHeight);
   renderer2.shadowMap.enabled = true;
-  renderer2.shadowMap.type    = THREE.VSMShadowMap;   // сглаживает швы
+  renderer2.shadowMap.type    = THREE.VSMShadowMap;   // smoothes out seams
 //   renderer.shadowMap.type = THREE.BasicShadowMap;
   document.body.appendChild(renderer2.domElement);
 
   const light2 = new THREE.DirectionalLight(0xffffff, 1.5);
 
-  light2.shadow.bias       = -0.0005;  // убирает тёмные швы
-    light2.shadow.normalBias =  0.02;    // маскирует «подпрыгивание» тени
-    light2.shadow.radius     =  4;       // мягкие края
+  light2.shadow.bias       = -0.0005;  // removes dark seams
+    light2.shadow.normalBias =  0.02;    // masks the "bouncing" of the shadow
+    light2.shadow.radius     =  4;       // soft edges
 
   light2.position.set(-10, 20, 10);
   light2.castShadow = true;
@@ -983,13 +983,13 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   group.position.set(x, y, z);
   const mat = material || new THREE.MeshStandardMaterial({ color });
 
-  // Меньшее тело
+  // Smaller body
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.4), mat);
   body.position.y = 1.4;
   body.castShadow = true;
   group.add(body);
 
-  // Голова: цилиндр + уменьшенная полусфера
+  // Head: cylinder + reduced hemisphere
   const headGroup = new THREE.Group();
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.30, 6), mat);
   base.position.y = 2.0;
@@ -1002,19 +1002,19 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   headGroup.add(cap);
   group.add(headGroup);
 
-  // Лицо: изогнутая по цилиндру текстура
+  // Face: Cylinder curved texture
   loader.load(faceTextureBase64, texture => {
     const radius = 0.22;
     const height = 0.3;
-    const angle = THREE.MathUtils.degToRad(150); // угол дуги
+    const angle = THREE.MathUtils.degToRad(150); // arc angle
     const segments = 16;
 
     const faceGeo = new THREE.CylinderGeometry(radius, radius, height, segments, 1, true, -angle / 2, angle);
     const faceMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
     const faceMesh = new THREE.Mesh(faceGeo, faceMat);
 
-    faceMesh.rotation.y = 0; // Повернуто лицом ВПЕРЁД
-    faceMesh.position.set(0, 1.95, 0); // выше: 1.85 + 0.15
+    faceMesh.rotation.y = 0; // Facing FORWARD
+    faceMesh.position.set(0, 1.95, 0); // above: 1.85 + 0.15
     headGroup.add(faceMesh);
   });
 
@@ -1042,7 +1042,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     elbow.add(wrist);
     shoulder.add(elbow);
 
-    // Подняты выше (тело ниже)
+    // Raised higher (body lower)
     shoulder.position.set(side * 0.45, 1.8, 0);
     group.add(shoulder);
 
@@ -1069,7 +1069,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 
     knee.add(ankle);
     hip.add(knee);
-    hip.position.set(side * 0.22, 0.9, 0); // ниже, т.к. тело ниже
+    hip.position.set(side * 0.22, 0.9, 0); // lower because the body is lower
     group.add(hip);
 
     return { hip, knee, ankle };
@@ -1142,7 +1142,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   scene2.add(player);
 
   const matSword = new THREE.MeshStandardMaterial({ color: 0xcccccc });
-  const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.2), matSword); // Меч короче
+  const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.2), matSword); // The sword is shorter
 
   sword.castShadow = true;
   sword.visible = false;
@@ -1157,7 +1157,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   fist.castShadow = true;
   fist.visible = true;
 
-  const rightHand = playerParts.rightWrist.children[0]; // это точно hand
+  const rightHand = playerParts.rightWrist.children[0]; // this is definitely hand
   rightHand.add(sword);
   rightHand.add(claw);
   rightHand.add(fist);
@@ -1173,8 +1173,8 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   strongSword.rotation.x = Math.PI / 2;
 
 
-  // Расположение — "торчит из кисти под углом 90°"
-  sword.position.set(0, -0.3, 0.2); // ближе к кисти
+  // Location - "sticks out of the hand at a 90° angle"
+  sword.position.set(0, -0.3, 0.2); // closer to the brush
   sword.rotation.x = Math.PI / 2;
 
   claw.position.set(0, -0.2, 0.15);
@@ -1249,15 +1249,15 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 
       if (e.key.toLowerCase() === "i") {
         if (!isTalking) {
-          const choices = ["Меч"];
-          if (inventory.includes("Коготь")) choices.push("Коготь");
-          if (inventory.includes("Меч+")) choices.push("Меч+");
-          showDialogue("Выберите оружие:", choices, choice => {
+          const choices = ["Sword"];
+          if (inventory.includes("Claw")) choices.push("Claw");
+          if (inventory.includes("Sword+")) choices.push("Sword+");
+          showDialogue("Select weapon:", choices, choice => {
             currentWeapon = choice;
-            sword.visible = (choice === "Меч");
-            strongSword.visible = (choice === "Меч+");
-            claw.visible = (choice === "Коготь");
-            fist.visible = (choice === "Кулак");
+            sword.visible = (choice === "Sword");
+            strongSword.visible = (choice === "Sword+");
+            claw.visible = (choice === "Claw");
+            fist.visible = (choice === "Fist");
           });
         }
       }
@@ -1276,7 +1276,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 
   window.addEventListener("gamepadconnected", (e) => {
     gamepadIndex = e.gamepad.index;
-    console.log("Геймпад подключен:", e.gamepad.id);
+    console.log("Gamepad is connected:", e.gamepad.id);
   });
 
   function processGamepadInput() {
@@ -1285,8 +1285,8 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 
   const lx = gp.axes[0];
   const ly = gp.axes[1];
-  const rx = Math.abs(gp.axes[2]) > 0.1 ? gp.axes[2] : 0;//если ось слегка смещена, то игнорируем её
-  const ry = Math.abs(gp.axes[3]) > 0.1 ? gp.axes[3] : 0;//если ось слегка смещена, то игнорируем её
+  const rx = Math.abs(gp.axes[2]) > 0.1 ? gp.axes[2] : 0;//If the axis is slightly offset, then ignore it
+  const ry = Math.abs(gp.axes[3]) > 0.1 ? gp.axes[3] : 0;//If the axis is slightly offset, then ignore it
 
   keys["w"] = ly < -0.3;
   keys["s"] = ly > 0.3;
@@ -1299,7 +1299,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 
   const buttons = gp.buttons;
 
-  // Взаимодействие — Y (3)
+  // Interaction - Y (3)
   if (buttons[3].pressed && !gpPrevButtons[3]) {
     const npc = npcs.find(n => n.group.position.distanceTo(player.position) < 2.5);
     if (npc) {
@@ -1312,17 +1312,17 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   }
 
 
-  // Открытие инвентаря — X (2)
+  // Open inventory - X (2)
   if (buttons[2].pressed && !gpPrevButtons[2] && !isTalking) {
-    const choices = ["Меч"];
-    if (inventory.includes("Коготь")) choices.push("Коготь");
-    if (inventory.includes("Меч+")) choices.push("Меч+");
-    showDialogue("Выберите оружие:", choices, choice => {
+    const choices = ["Sword"];
+    if (inventory.includes("Claw")) choices.push("Claw");
+    if (inventory.includes("Sword+")) choices.push("Sword+");
+    showDialogue("Select weapon:", choices, choice => {
       currentWeapon = choice;
-      sword.visible = (choice === "Меч");
-      strongSword.visible = (choice === "Меч+");
-      claw.visible = (choice === "Коготь");
-      fist.visible = (choice === "Кулак");
+      sword.visible = (choice === "Sword");
+      strongSword.visible = (choice === "Sword+");
+      claw.visible = (choice === "Claw");
+      fist.visible = (choice === "Fist");
     });
   }
 
@@ -1337,17 +1337,17 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       selectedIndex = (selectedIndex + 1) % currentChoices.length;
       updateChoicesUI();
     }
-    // Подтвердить — A (0)
+    // Apply — A (0)
     if (buttons[0].pressed && !gpPrevButtons[0]) {
       const choice = currentChoices[selectedIndex];
       if (currentCallback) currentCallback(choice);
       closeDialogue();
-      blockJumpAButton = true; // 🔒 Заблокировать прыжок в этом кадре
+      blockJumpAButton = true; // 🔒 Block jump in this frame
     }
   }
 
 
-  // Атака — RB (5)
+  // Attack — RB (5)
   if (buttons[5].pressed && !gpPrevButtons[5]) {
     if (!isAttacking && !isTalking) {
       isAttacking = true;
@@ -1356,23 +1356,23 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     }
   }
 
-  // Выбор в диалоге — A (0) или X (0)
+  // The choice in the dialogue is A (0) or X (0)
   if (isTalking && buttons[0].pressed && !gpPrevButtons[0]) {
     const choice = currentChoices[selectedIndex];
     if (currentCallback) currentCallback(choice);
     closeDialogue();
   }
 
-  // Выбор в диалоге — A/X (0)
+  // Dialogue choice - A/X (0)
   if (isTalking && buttons[0].pressed && !gpPrevButtons[0]) {
     const choice = currentChoices[selectedIndex];
     if (currentCallback) currentCallback(choice);
     closeDialogue();
-    blockJumpAButton = true; // ⛔ блокируем прыжок на один цикл
+    blockJumpAButton = true; // ⛔ block the jump for one cycle
   }
 
-  // Прыжок — A (0), только если не заблокирован
-  if (introOverlay && document.body.contains(introOverlay)) return; // ⛔ пока интро — не прыгаем
+  // Jump - A (0), only if not blocked
+  if (introOverlay && document.body.contains(introOverlay)) return; // ⛔ while the intro is running - don't jump
 
   if (!isTalking && !blockJumpAButton && buttons[0].pressed && !gpPrevButtons[0]) {
     if (isOnGround) {
@@ -1525,8 +1525,8 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     const enemy = createEnemy(x, z, color);
     enemy.position.y = y;
     enemy.name = name;
-    enemy.isGenericEnemy = true; // метка
-    allEnemies.push(enemy); // универсальный список
+    enemy.isGenericEnemy = true; // label
+    allEnemies.push(enemy); // universal list
     namedEnemies[name] = enemy;
     window[name] = enemy;
     return enemy;
@@ -1554,7 +1554,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       if (!isAttacking) {
         isAttacking = true;
         attackTimer = 0.2;
-        attackAnimTimer = 0.2; // ← ДОБАВЛЕНО
+        attackAnimTimer = 0.2; // ← ADDED
       }
     }
   });
@@ -1584,7 +1584,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       redFlash.style.opacity = 1;
       setTimeout(() => redFlash.style.opacity = 0, 150);
       if (playerHealth <= 0) {
-        showDialogue("Вы погибли! Перезагрузите страницу.", []);
+        showDialogue("You are dead! Reload the page.", []);
       }
     }
   }
@@ -1595,7 +1595,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       const dir = player.position.clone().sub(enemyObj.position).normalize();
       enemyObj.position.add(dir.multiplyScalar(0.05));
 
-      // Поворот врага лицом к игроку
+      // Turn the enemy to face the player
       enemyObj.lookAt(player.position.clone().setY(enemyObj.position.y));
 
       if (!enemyObj.alreadyChasing) {
@@ -1619,7 +1619,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   loader.load(floorTextureBase64, texture => {
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(50, 50); // Повтор по X и Z
+    texture.repeat.set(50, 50); // Repeat by X and Z
     matFloor.map = texture;
     matFloor.needsUpdate = true;
   });
@@ -1646,7 +1646,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     wallMat.needsUpdate = true;
   });
 
-  // Небольшая коррекция размеров и позиции, чтобы блоки "уходили" друг в друга на 0.01:
+  // A small correction of sizes and positions so that the blocks "go" into each other by 0.01:
   const wall = new THREE.Mesh(new THREE.BoxGeometry(w + 0.01, h + 0.01, d + 0.01), wallMat);
   wall.position.set(x, y, z);
   wall.castShadow = true;
@@ -1714,7 +1714,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   function animate() {
     requestAnimationFrame(animate);
 
-    // Сбрасываем блокировку прыжка с кнопки A только один раз за кадр
+    // Reset the jump lock with the A button only once per frame
     if (blockJumpFrames > 0) {
       blockJumpAButton = true;
       blockJumpFrames--;
@@ -1764,11 +1764,11 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
         isAttacking = false;
 
         let damage = 0.5;
-        if (currentWeapon === "Коготь") damage = 1;
-        if (currentWeapon === "Меч") damage = 0.5;
-        if (currentWeapon === "Меч+") damage = 1;
+        if (currentWeapon === "Claw") damage = 1;
+        if (currentWeapon === "Sword") damage = 0.5;
+        if (currentWeapon === "Sword+") damage = 1;
 
-        // === Урон универсальным врагам (из allEnemies)
+        // === Damage to universal enemies (from allEnemies)
         allEnemies.forEach(enemy => {
           if (!enemy.alive) return;
 
@@ -1786,7 +1786,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
           }
         });
 
-        // === Урон enemyInside
+        // === Damage enemyInside
         if (enemyInside && enemyInside.alive && player.position.distanceTo(enemyInside.position) < 2) {
           enemyInside.health -= damage;
           if (enemyInside.health <= 0) {
@@ -1864,20 +1864,20 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       gate.position.y += 0.1;
     }
 
-    // Желаемая позиция камеры
+    // Desired camera position
     const desiredCamPos = new THREE.Vector3(
       player.position.x - Math.sin(yaw) * 7,
       player.position.y + 2 + Math.sin(pitch) * 5,
       player.position.z - Math.cos(yaw) * 7
     );
 
-    // Направление от игрока к камере
+    // Direction from player to camera
     const direction = new THREE.Vector3().subVectors(desiredCamPos, player.position).normalize();
     const raycaster = new THREE.Raycaster(player.position.clone().add(new THREE.Vector3(0, 1.5, 0)), direction);
     const intersects = raycaster.intersectObjects(obstacles, true);
 
     if (intersects.length > 0 && intersects[0].distance < 7) {
-      // Если есть препятствие ближе 7 единиц — отодвигаем до него
+      // If there is an obstacle closer than 7 units, we move it to it
       desiredCamPos.copy(raycaster.ray.origin).add(direction.multiplyScalar(intersects[0].distance - 0.1));
     }
 
@@ -1885,7 +1885,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     camera2.lookAt(player.position.clone().add(new THREE.Vector3(0, 1.5, 0)));
 
 
-    // Анимация рук и ног
+    // Animation of arms and legs
     function animateWalk(character, speed) {
       const sin = Math.sin(walkCycle * 6) * 0.5;
       const cos = Math.cos(walkCycle * 6) * 0.5;
@@ -1941,7 +1941,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       playerParts.headGroup.position.y = 0;
       playerLeftArm.rotation.x = 0;
       playerRightArm.rotation.x = 0;
-      playerParts.leftElbow.rotation.x = -Math.PI / 4; // ← полусогнутые
+      playerParts.leftElbow.rotation.x = -Math.PI / 4; // ← half-bent
       playerParts.rightElbow.rotation.x = -Math.PI / 4;
       playerLeftLeg.rotation.x = 0;
       playerRightLeg.rotation.x = 0;
@@ -1951,7 +1951,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 
 
 
-    // Анимация удара — правая рука
+    // Punch animation - right hand
     if (attackAnimTimer > 0) {
       attackAnimTimer -= 0.016;
       const totalTime = 0.15;
@@ -1960,10 +1960,10 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 
       let swing;
       if (t < raiseTime / totalTime) {
-        // фаза подъема: от 0 до -90°
+        // lifting phase: from 0 to -90°
         swing = -Math.PI / 2 * (t * totalTime / raiseTime);
       } else {
-        // фаза удара вниз: от -90° до -180°
+        // Downward strike phase: -90° to -180°
         const tt = (t - raiseTime / totalTime) / (1 - raiseTime / totalTime);
         swing = -Math.PI / 2 - Math.PI / 2 * tt;
       }
@@ -1980,11 +1980,11 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 
 
     if (enemyInside && enemyInside.alive) {
-      // врага нет, логика не нужна
+      // there is no enemy, no logic needed
     }
 
 
-    // Анимация открытия/закрытия двери
+    // Door opening/closing animation
     for (const d of allDoors) {
       if (d.state === "opening") {
         d.pivot.rotation.y -= 0.05;
@@ -2014,7 +2014,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   updateHealthUI();
 
 
-  // --- Экран предыстории ---
+  // --- Background screen ---
   const introOverlay = document.createElement("div");
   introOverlay.style.position = "fixed";
   introOverlay.style.top = "0";
@@ -2034,19 +2034,19 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   introOverlay.style.zIndex = "9999";
   introOverlay.innerHTML = `
     <div>
-      <h2 style="margin-top:0">Вызов в Замок</h2>
-      <p>Вы — Ганс Таппенцаль, по приказу направлены в эти земли. Вы должны прибыть в замок и ожидать дальнейших указаний.</p>
-      <p>Однако вас не пропускают. Староста просит помощи с волками в западном лесу. Без его письма охрана замка не пустит вас внутрь.</p>
-      <p>После выполнения задачи появится возможность войти и продолжить выполнение задания.</p>
-      <p style="margin-top:20px;"><em>E - для взаимодйствия с окружением</em></p>
-      <p style="margin-top:20px;"><em>I - для смены оружия в инвентаре</em></p>
-      <p style="margin-top:20px;"><em>Enter - для закрытия текущего диалога</em></p>
-      <p style="margin-top:20px;"><em>Нажмите Enter (или A на геймпаде), чтобы начать</em></p>
+      <h2 style="margin-top:0">Call to the Castle</h2>
+      <p>You are Hans Tappenzahl, and have been ordered to these lands. You are to report to the castle and await further instructions.</p>
+      <p>However, you are not allowed in. The elder asks for help with the wolves in the western forest. Without his letter, the castle guards will not let you in.</p>
+      <p>After completing the task, you will be able to log in and continue completing the task.</p>
+      <p style="margin-top:20px;"><em>E - for interaction with the environment</em></p>
+      <p style="margin-top:20px;"><em>I - to change weapons in inventory</em></p>
+      <p style="margin-top:20px;"><em>Enter - to close the current dialog</em></p>
+      <p style="margin-top:20px;"><em>Press Enter (or A on a gamepad) to start</em></p>
     </div>\n`;
   document.body.appendChild(introOverlay);
 
   function closeIntro() {
-    blockJumpFrames = 3; // ⏳ блокируем прыжок на 3 кадра
+    blockJumpFrames = 3; // ⏳ block the jump for 3 frames
     introOverlay.remove();
     document.removeEventListener("keydown", skipIntro);
     window.removeEventListener("gamepadconnected", gamepadIntroConnect);
@@ -2063,7 +2063,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     const checkA = () => {
       const gp = navigator.getGamepads()[e.gamepad.index];
       if (gp && gp.buttons[0].pressed) {
-        blockJumpFrames = 3; // ✅ правильно блокируем прыжок на 3 кадра
+        blockJumpFrames = 3; // ✅ correctly blocking the jump for 3 frames
         closeIntro();
       } else {
         requestAnimationFrame(checkA);
