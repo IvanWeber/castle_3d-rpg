@@ -75,12 +75,10 @@
     <button onclick="applySettings()">Apply</button>
   </div>
   <button onclick="toggleInputMode()" id="modeButton">Mode: Mouse</button>
-  <button onclick="addPlayer()">Add player</button>
   <button onclick="copyFragment()">Copy fragment</button>
   <button onclick="startPasting()">Paste fragment</button>
   <button onclick="cancelPasting()">Undo Paste</button>
   <button onclick="copyCode()">Copy Code</button>
-  <button onclick="removeEnemy()">Remove enemy</button>
   <button onclick="saveFinalHTML()">Save final HTML</button>
   <button onclick="setSkyColor()">Set sky color</button>
   <div>
@@ -89,10 +87,10 @@
   <textarea id="codeOutput"></textarea>
 
   <button onclick="addNPC()">Add NPC</button>
-  <input type="text" id="npcNameInput" placeholder="Имя NPC" style="width: 100px; margin-top:4px;">
+  <input type="text" id="npcNameInput" placeholder="NPC Name" style="width: 100px; margin-top:4px;">
   Угол NPC: <input type="number" id="npcRotationInput" value="0" style="width: 60px;">
   <button onclick="addEnemy()">Add enemy</button>
-  <input type="text" id="enemyNameInput" placeholder="Имя врага" style="width: 100px; margin-top:4px;">
+  <input type="text" id="enemyNameInput" placeholder="Enemy name" style="width: 100px; margin-top:4px;">
   Enemy angle: <input type="number" id="enemyRotationInput" value="0" style="width: 60px;">
 </div>
 
@@ -623,20 +621,20 @@ function updateCodeOutput() {
 
     const colorHex = "0x" + (n.color?.toString(16).padStart(6, '0') || "ffff00");
     code += `const ${n.name} = createNPC(${n.x}, ${n.y}, ${n.z}, ${colorHex}, () => {\n`;
-    code += `  // === Диалог NPC "${n.name}" ===\n`;
-    code += `  // Используйте переменные ниже для логики квеста:\n`;
+    code += `  // === NPC Dialogue "${n.name}" ===\n`;
+    code += `  // Use the variables below for quest logic:\n`;
     code += `  // ${n.name}QuestGiven, ${n.name}QuestComplete, ${n.name}RewardGiven\n\n`;
 
     code += `  if (!${n.name}QuestGiven) {\n`;
-    code += `    showDialogue("Приветствую. Поможете нам с проблемой?", ["Да", "Нет"], choice => {\n`;
-    code += `      if (choice === "Да") {\n`;
+    code += `    showDialogue("Hello. Can you help us with a problem?", ["Yes", "No"], choice => {\n`;
+    code += `      if (choice === "Yes") {\n`;
     code += `        ${n.name}QuestGiven = true;\n`;
-    code += `        // Вставка второго диалога с задержкой, чтобы не перекрыть предыдущий\n`;
+    code += `        // Inserting a second dialog with a delay so as not to overlap the previous one\n`;
     code += `        setTimeout(() => {\n`;
-    code += `          showDialogue("Отлично. Найдите и устраните врага enemy1.", ["Хорошо"]);\n`;
+    code += `          showDialogue("Excellent. Find and eliminate the enemy enemy1.", ["OK"]);\n`;
     code += `        }, 0);\n`;
     code += `      } else {\n`;
-    code += `        showDialogue("Жаль. Мы надеялись на вас.", ["Уйти"]);\n`;
+    code += `        showDialogue("Too bad. We were counting on you.", ["Leave"]);\n`;
     code += `      }\n`;
     code += `    });\n\n`;
 
@@ -644,20 +642,20 @@ function updateCodeOutput() {
     code += `    if (enemy1 && !enemy1.alive) {\n`;
     code += `      ${n.name}QuestComplete = true;\n`;
     code += `    } else {\n`;
-    code += `      showDialogue("Вы ещё не выполнили задание. Устраните enemy1.", ["Понял"]);\n`;
+    code += `      showDialogue("You have not completed the task yet. Eliminate enemy1.", ["Понял"]);\n`;
     code += `      return;\n`;
     code += `    }\n\n`;
 
     code += `  } else if (!${n.name}RewardGiven) {\n`;
-    code += `    showDialogue("Отличная работа. Вот награда: 20 золотых.", ["Спасибо"], () => {\n`;
+    code += `    showDialogue("Excellent work. Here is the reward: 20 gold.", ["Thank you"], () => {\n`;
     code += `      gold += 20;\n`;
-    code += `      inventory.push("Письмо-рекомендация");\n`;
+    code += `      inventory.push("Recommendation letter");\n`;
     code += `      ${n.name}RewardGiven = true;\n`;
     code += `      updateUI();\n`;
     code += `    });\n\n`;
 
     code += `  } else {\n`;
-    code += `    showDialogue("Благодарим ещё раз за помощь.", ["До встречи"]);\n`;
+    code += `    showDialogue("Thanks again for your help.", ["See you"]);\n`;
     code += `  }\n`;
     code += `});\n\n`;
     
