@@ -78,7 +78,6 @@
   <button onclick="copyFragment()">Copy fragment</button>
   <button onclick="startPasting()">Paste fragment</button>
   <button onclick="cancelPasting()">Undo Paste</button>
-  <button onclick="copyCode()">Copy Code</button>
   <button onclick="saveFinalHTML()">Save final HTML</button>
   <button onclick="setSkyColor()">Set sky color</button>
   <div>
@@ -341,7 +340,7 @@ function createPlayerDirectionArrow(rotationDeg = 0, color = 0x00b300) {
 
   scene.add(cone);
 }
-createPlayerDirectionArrow(180)
+createPlayerDirectionArrow(0)
 
 
 function applySettings() {
